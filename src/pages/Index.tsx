@@ -1,0 +1,533 @@
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  ConfigurationPanel,
+  ConfigurationPanelRef,
+} from "@/components/ConfigurationPanel";
+import { ProductPreview } from "@/components/ProductPreview";
+import { SummaryPanel } from "@/components/SummaryPanel";
+import { MobileConfigDrawer } from "@/components/MobileConfigDrawer";
+import { SelectedConfigDrawer } from "@/components/SelectedConfigDrawer";
+import { RequestQuoteDialog } from "@/components/RequestQuoteDialog";
+import { ExportDialog } from "@/components/ExportDialog";
+import { AdminDialog } from "@/components/AdminDialog";
+import { SettingsDialog } from "@/components/SettingsDialog";
+import { ThemeCustomizer } from "@/components/theme/ThemeCustomizer";
+import { EditableTitle } from "@/components/EditableTitle";
+import { CSVImportDialog } from "@/components/admin/CSVImportDialog";
+import {
+  ConfiguratorTour,
+  shouldShowTour,
+  resetTour,
+} from "@/components/tour/ConfiguratorTour";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { ConfigCategory, ConfigOption } from "@/types/configurator";
+import { useConfiguration } from "@/hooks/useConfiguration";
+import { useConfiguratorData } from "@/hooks/useConfiguratorData";
+import { useTheme } from "@/hooks/useTheme";
+import { useSettings } from "@/hooks/useSettings";
+import { useAdminVerification } from "@/hooks/useAdminVerification";
+import { useAuthToken } from "@/hooks/useAuthToken";
+import { Palette, FileText, Upload, HelpCircle, Settings } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+
+const Index = () => {
+  const { token, apiKey: urlApiKey, isAdminMode } = useAuthToken();
+  const {
+    isVerified,
+    verifiedPublicId,
+    isLoading: isVerifyingToken,
+  } = useAdminVerification(token, isAdminMode);
+
+  // Determine which apiKey to use: verified publicId from token or from URL
+  const activeApiKey = isAdminMode ? verifiedPublicId : urlApiKey;
+
+  const {
+    categories: apiCategories,
+    configuratorFound,
+    isLoading: isLoadingData,
+  } = useConfiguratorData(activeApiKey);
+
+  const {
+    state,
+    dispatch,
+    calculateTotal,
+    onAddCategory,
+    onUpdateCategory,
+    onAddOption,
+    onUpdateOption,
+    onDeleteCategory,
+    onDeleteOption,
+  } = useConfiguration(apiCategories);
+
+  const { theme, updateTheme, resetTheme } = useTheme();
+  const {
+    settings,
+    updateCurrency,
+    addEmailTemplate,
+    updateEmailTemplate,
+    deleteEmailTemplate,
+    cloneEmailTemplate,
+    setDefaultEmailTemplate,
+    formatPrice,
+  } = useSettings();
+
+  const configPanelRef = useRef<ConfigurationPanelRef>(null);
+  const [runTour, setRunTour] = useState(false);
+
+  // Automatically enable admin mode when verified
+  useEffect(() => {
+    if (isVerified && !state.isAdminMode) {
+      dispatch({ type: "TOGGLE_ADMIN" });
+    } else if (!isVerified && state.isAdminMode) {
+      dispatch({ type: "TOGGLE_ADMIN" });
+    }
+  }, [isVerified, state.isAdminMode]);
+
+  const adminModeEnabled = state.isAdminMode && isVerified;
+
+  // Start tour for first-time admin users
+  useEffect(() => {
+    if (adminModeEnabled && shouldShowTour()) {
+      // Small delay to ensure UI is ready
+      setTimeout(() => setRunTour(true), 500);
+    }
+  }, [adminModeEnabled]);
+
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [csvImportDialogOpen, setCsvImportDialogOpen] = useState(false);
+  const [adminDialogMode, setAdminDialogMode] = useState<"category" | "option">(
+    "category"
+  );
+  const [selectedCategoryForOption, setSelectedCategoryForOption] =
+    useState<string>("");
+  const [editingOption, setEditingOption] = useState<ConfigOption | null>(null);
+  const [editingCategory, setEditingCategory] = useState<ConfigCategory | null>(
+    null
+  );
+  const [configuratorId, setConfiguratorId] = useState<string>("");
+
+  const handleAddCategory = () => {
+    setEditingOption(null);
+    setEditingCategory(null);
+    setAdminDialogMode("category");
+    setAdminDialogOpen(true);
+  };
+
+  const handleEditCategory = (category: ConfigCategory) => {
+    setEditingCategory(category);
+    setEditingOption(null);
+    setAdminDialogMode("category");
+    setAdminDialogOpen(true);
+  };
+
+  const handleAddOption = (categoryId: string) => {
+    setEditingOption(null);
+    setEditingCategory(null);
+    setSelectedCategoryForOption(categoryId);
+    setAdminDialogMode("option");
+    setAdminDialogOpen(true);
+  };
+
+  const handleEditOption = (categoryId: string, option: ConfigOption) => {
+    setEditingOption(option);
+    setEditingCategory(null);
+    setSelectedCategoryForOption(categoryId);
+    setAdminDialogMode("option");
+    setAdminDialogOpen(true);
+  };
+
+  const handleCategoryCreated = (categoryId: string) => {
+    // Scroll to and expand the new category
+    if (configPanelRef.current) {
+      configPanelRef.current.scrollToAndExpandCategory(categoryId);
+    }
+
+    // After creating a category, automatically open the option dialog
+    setTimeout(() => {
+      setSelectedCategoryForOption(categoryId);
+      setAdminDialogMode("option");
+      setAdminDialogOpen(true);
+    }, 100);
+  };
+
+  const handleRestartTour = () => {
+    resetTour();
+    setRunTour(true);
+  };
+
+  // set configuratorId
+  useEffect(() => {
+    setConfiguratorId(apiCategories[0]?.configuratorId);
+    console.log(apiCategories);
+  }, [apiCategories]);
+
+  const handleCSVImport = (
+    data: { category: string; options: ConfigOption[] }[]
+  ) => {
+    data.forEach(({ category, options }) => {
+      // Check if category exists
+      const existingCategory = state.categories.find(
+        (c) => c.name === category
+      );
+
+      if (existingCategory) {
+        // Add options to existing category
+        options.forEach((option) => {
+          onAddOption(existingCategory.id, option);
+        });
+      } else {
+        // Create new category and add options
+        const newCategory: ConfigCategory = {
+          id: `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: category,
+          options: [],
+          relatedCategories: [],
+          configuratorId,
+        };
+
+        onAddCategory(newCategory);
+
+        // Add options after a short delay to ensure category is created
+        setTimeout(() => {
+          options.forEach((option) => {
+            onAddOption(newCategory.id, option);
+          });
+        }, 100);
+      }
+    });
+  };
+
+  // Show loading while verifying token or loading data
+  if (isVerifyingToken || isLoadingData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">
+            {isVerifyingToken
+              ? "Verifying access..."
+              : "Loading configurator..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if in admin mode but token is invalid
+  if (isAdminMode && !isVerified) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="space-y-3">
+            <p>
+              Invalid or expired admin token. Please request a new edit link.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() =>
+                (window.location.href = "http://localhost:3000/dashboard/embed")
+              }
+            >
+              Go to Dashboard
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show error if configurator not found
+  if (!configuratorFound && activeApiKey) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-semibold mb-1">Invalid API Key</p>
+            <p>
+              The provided API key is invalid or the configurator was not found.
+            </p>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show empty configurator message
+  if (configuratorFound && apiCategories.length === 0 && !isAdminMode) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Alert className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-semibold mb-1">Empty Configurator</p>
+            <p>
+              This configurator has no categories or options configured yet.
+            </p>
+            {adminModeEnabled && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Use the admin panel to add categories and options.
+              </p>
+            )}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show error if no apiKey is provided
+  if (!activeApiKey) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No configurator specified. Please provide a valid apiKey parameter.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <CurrencyProvider formatPrice={formatPrice}>
+      <div className="min-h-screen flex flex-col">
+        <header className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between admin-toggle-area">
+          <EditableTitle initialTitle="Product Configurator" />
+          {adminModeEnabled && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleRestartTour}
+                size="sm"
+                className="sm:h-10"
+                title="Restart Tour"
+              >
+                <HelpCircle className="h-4 w-4" />
+                <span className="hidden sm:inline sm:ml-2">Tour</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCsvImportDialogOpen(true)}
+                size="sm"
+                className="sm:h-10"
+              >
+                <Upload className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Import CSV</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSettingsDialogOpen(true)}
+                size="sm"
+                className="sm:h-10"
+              >
+                <Settings className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Settings</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setThemeDialogOpen(true)}
+                size="sm"
+                className="sm:h-10"
+              >
+                <Palette className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Theme</span>
+              </Button>
+            </div>
+          )}
+        </header>
+
+        <div className="flex-1 flex flex-col lg:grid lg:grid-cols-10 overflow-hidden">
+          {/* Mobile: Sticky Product Preview at top */}
+          <div className="lg:hidden sticky top-0 z-20 bg-background">
+            <ProductPreview
+              selectedConfig={state.selectedConfig}
+              categories={state.categories}
+              totalPrice={formatPrice(calculateTotal())}
+              onRequestQuote={() => setQuoteDialogOpen(true)}
+              onExport={() => setExportDialogOpen(true)}
+              isMobile={true}
+            />
+          </div>
+
+          {/* Desktop: Configuration Panel */}
+          <div className="hidden lg:block lg:col-span-3 lg:h-[calc(100vh-73px)] overflow-y-auto lg:border-r border-border">
+            <ConfigurationPanel
+              ref={configPanelRef}
+              categories={state.categories}
+              selectedConfig={state.selectedConfig}
+              onOptionSelect={(categoryId, optionId) =>
+                dispatch({ type: "SELECT_OPTION", categoryId, optionId })
+              }
+              isAdminMode={adminModeEnabled}
+              onAddCategory={handleAddCategory}
+              onEditCategory={handleEditCategory}
+              onDeleteCategory={onDeleteCategory}
+              onAddOption={handleAddOption}
+              onEditOption={handleEditOption}
+              onDeleteOption={onDeleteOption}
+            />
+          </div>
+
+          {/* Desktop: Product Preview */}
+          <div className="hidden lg:block lg:col-span-4 lg:h-[calc(100vh-73px)] overflow-y-auto lg:border-r border-border preview-panel">
+            <ProductPreview
+              selectedConfig={state.selectedConfig}
+              categories={state.categories}
+              totalPrice={formatPrice(calculateTotal())}
+              onRequestQuote={() => setQuoteDialogOpen(true)}
+              onExport={() => setExportDialogOpen(true)}
+              isMobile={false}
+            />
+          </div>
+
+          {/* Desktop: Summary Panel */}
+          <div className="hidden lg:block lg:col-span-3 lg:h-[calc(100vh-73px)] overflow-y-auto summary-panel">
+            <SummaryPanel
+              categories={state.categories}
+              selectedConfig={state.selectedConfig}
+            />
+          </div>
+
+          {/* Mobile: Configuration Drawers */}
+          <div className="lg:hidden flex-1 overflow-y-auto pb-24">
+            <div className="p-4 space-y-3">
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                Configure Your Product
+              </h2>
+
+              {/* Selected Configuration Summary Button */}
+              <SelectedConfigDrawer
+                categories={state.categories}
+                selectedConfig={state.selectedConfig}
+                totalPrice={formatPrice(calculateTotal())}
+              />
+
+              <div className="pt-2 space-y-3">
+                {state.categories.map((category) => {
+                  const selectedOptionId = state.selectedConfig[category.id];
+                  const selectedOption = category.options?.find(
+                    (o) => o.id === selectedOptionId
+                  );
+
+                  return (
+                    <MobileConfigDrawer
+                      key={category.id}
+                      category={category}
+                      selectedOption={selectedOption}
+                      onOptionSelect={(optionId) =>
+                        dispatch({
+                          type: "SELECT_OPTION",
+                          categoryId: category.id,
+                          optionId,
+                        })
+                      }
+                      selectedConfig={state.selectedConfig}
+                      categories={state.categories}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile: Sticky Bottom Action Bar */}
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border p-3 shadow-lg z-30 quote-export-actions">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setQuoteDialogOpen(true)}
+                className="flex-1"
+                size="lg"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Quote
+              </Button>
+              <Button
+                onClick={() => setExportDialogOpen(true)}
+                variant="outline"
+                className="flex-1"
+                size="lg"
+              >
+                Export
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <ConfiguratorTour run={runTour} onComplete={() => setRunTour(false)} />
+
+        <RequestQuoteDialog
+          open={quoteDialogOpen}
+          onOpenChange={setQuoteDialogOpen}
+          totalPrice={formatPrice(calculateTotal())}
+          categories={state.categories}
+          selectedConfig={state.selectedConfig}
+        />
+
+        <SettingsDialog
+          open={settingsDialogOpen}
+          onOpenChange={setSettingsDialogOpen}
+          currency={settings.currency}
+          onCurrencyChange={updateCurrency}
+          emailTemplates={settings.emailTemplates}
+          defaultEmailTemplate={settings.defaultEmailTemplate}
+          onAddTemplate={addEmailTemplate}
+          onUpdateTemplate={updateEmailTemplate}
+          onDeleteTemplate={deleteEmailTemplate}
+          onCloneTemplate={cloneEmailTemplate}
+          onSetDefaultTemplate={setDefaultEmailTemplate}
+          primaryColor={theme?.primaryColor || "#0066ff"}
+        />
+
+        <ExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          categories={state.categories}
+          selectedConfig={state.selectedConfig}
+        />
+
+        <AdminDialog
+          open={adminDialogOpen}
+          onOpenChange={setAdminDialogOpen}
+          mode={adminDialogMode}
+          categoryId={selectedCategoryForOption}
+          categories={state.categories}
+          editingOption={editingOption}
+          editingCategory={editingCategory}
+          onAddCategory={onAddCategory}
+          onUpdateCategory={onUpdateCategory}
+          onAddOption={onAddOption}
+          onUpdateOption={onUpdateOption}
+          onCategoryCreated={handleCategoryCreated}
+          configuratorId={configuratorId}
+        />
+
+        <ThemeCustomizer
+          open={themeDialogOpen}
+          onOpenChange={setThemeDialogOpen}
+          currentTheme={theme}
+          onUpdateTheme={updateTheme}
+          onResetTheme={resetTheme}
+        />
+
+        <CSVImportDialog
+          open={csvImportDialogOpen}
+          onOpenChange={setCsvImportDialogOpen}
+          categories={state.categories}
+          onImport={handleCSVImport}
+        />
+      </div>
+    </CurrencyProvider>
+  );
+};
+
+export default Index;
