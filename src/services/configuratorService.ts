@@ -36,7 +36,8 @@ export interface UpdateConfiguratorInput {
 
 export const configuratorService = {
   async getByPublicId(publicId: string, publicKey: string) {
-    const embedOrigin = localStorage.getItem("embedOrigin");
+    const embedOrigin =
+      localStorage.getItem("embedOrigin") || window.location.origin;
 
     return apiClient.get<ConfiguratorData>(`/api/configurator/${publicId}`, {
       headers: {
