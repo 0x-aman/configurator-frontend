@@ -34,6 +34,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
 const Index = () => {
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.embedOrigin) {
+        // Optional: validate event.origin if you want to allow only certain domains
+        localStorage.setItem("embedOrigin", event.data.embedOrigin);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
   const { token, publicId: urlApiKey, isAdminMode, publicKey } = useAuthToken();
   const {
     isVerified,

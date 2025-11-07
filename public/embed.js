@@ -8,11 +8,19 @@
   const iframe = document.createElement("iframe");
   iframe.src = `https://product-configurator-frontend.netlify.app/?publicId=${encodeURIComponent(
     publicId
-  )}?publicKey=${encodeURIComponent(publicKey)}`;
+  )}&publicKey=${encodeURIComponent(publicKey)}`;
   iframe.style.width = "100%";
   iframe.style.height = "600px";
   iframe.style.border = "none";
 
   container.appendChild(iframe);
   script.parentNode.insertBefore(container, script.nextSibling);
+
+  // ✅ send client origin to iframe
+  iframe.onload = () => {
+    iframe.contentWindow.postMessage(
+      { embedOrigin: window.location.origin },
+      "https://product-configurator-frontend.netlify.app"
+    );
+  };
 })();

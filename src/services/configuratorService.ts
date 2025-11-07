@@ -36,10 +36,11 @@ export interface UpdateConfiguratorInput {
 
 export const configuratorService = {
   async getByPublicId(publicId: string, publicKey: string) {
-    const origin = window.location.origin;
+    const embedOrigin = localStorage.getItem("embedOrigin");
+
     return apiClient.get<ConfiguratorData>(`/api/configurator/${publicId}`, {
       headers: {
-        "X-Embed-Origin": origin,
+        "X-Embed-Origin": embedOrigin,
       },
     });
   },

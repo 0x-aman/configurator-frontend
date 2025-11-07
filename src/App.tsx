@@ -6,6 +6,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { ThemeProvider } from "next-themes";
 import { ReactQueryProvider } from "./lib/react-query";
+import { useEffect } from "react";
 
 const App = () => (
   <ReactQueryProvider>
