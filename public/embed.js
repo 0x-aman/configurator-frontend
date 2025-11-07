@@ -5,7 +5,7 @@
   container.id = "keen-iframe-container";
 
   const iframe = document.createElement("iframe");
-  iframe.src = `https://keen-daffodil-bf4586.netlify.app/?apiKey=${encodeURIComponent(
+  iframe.src = `https://product-configurator-frontend.netlify.app/?apiKey=${encodeURIComponent(
     apiKey
   )}`;
   iframe.style.width = "100%";
