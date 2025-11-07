@@ -1,5 +1,5 @@
-import { apiClient, ApiResponse } from '@/lib/api-client';
-import { ConfigCategory } from '@/types/configurator';
+import { apiClient, ApiResponse } from "@/lib/api-client";
+import { ConfigCategory } from "@/types/configurator";
 
 export interface ConfiguratorData {
   id: string;
@@ -35,38 +35,49 @@ export interface UpdateConfiguratorInput {
 }
 
 export const configuratorService = {
-  async getByPublicId(publicId: string) {
-    return apiClient.get<ConfiguratorData>(`/api/configurator/${publicId}`);
+  async getByPublicId(publicId: string, publicKey: string) {
+    const origin = window.location.origin;
+    return apiClient.get<ConfiguratorData>(`/api/configurator/${publicId}`, {
+      headers: {
+        "X-Embed-Origin": origin,
+      },
+    });
   },
 
   async list() {
-    return apiClient.get<ConfiguratorData[]>('/api/configurator/list');
+    return apiClient.get<ConfiguratorData[]>("/api/configurator/list");
   },
 
   async create(input: CreateConfiguratorInput) {
-    return apiClient.post<ConfiguratorData>('/api/configurator/create', input);
+    return apiClient.post<ConfiguratorData>("/api/configurator/create", input);
   },
 
   async update(input: UpdateConfiguratorInput) {
-    return apiClient.post<ConfiguratorData>('/api/configurator/update', input);
+    return apiClient.post<ConfiguratorData>("/api/configurator/update", input);
   },
 
   async delete(id: string, token: string) {
-    return apiClient.post<unknown>('/api/configurator/delete', { id, token });
+    return apiClient.post<unknown>("/api/configurator/delete", { id, token });
   },
 
   async duplicate(id: string, token: string) {
-    return apiClient.post<ConfiguratorData>('/api/configurator/duplicate', { id, token });
+    return apiClient.post<ConfiguratorData>("/api/configurator/duplicate", {
+      id,
+      token,
+    });
   },
 
   async verifyEditToken(token: string) {
     return apiClient.post<{ valid: boolean; publicId: string }>(
-      '/api/configurator/verify-edit-token',
+      "/api/configurator/verify-edit-token",
       { token }
     );
   },
 
   async generateEditToken(id: string) {
-    return apiClient.post<{ token: string }>('/api/configurator/generate-edit-token', { id });
+    return apiClient.post<{ token: string }>(
+      "/api/configurator/generate-edit-token",
+      { id }
+    );
   },
 };

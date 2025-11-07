@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +17,17 @@ import { Loader2 } from "lucide-react";
 interface RequestQuoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  totalPrice: string;
+  totalPrice: string | number;
   categories?: any[];
-  selectedConfig?: any;
+  selectedConfig?: {
+    configuratorId?: string;
+    selectedOptions?: Record<string, string>;
+    items?: {
+      sku: string;
+      label: string;
+      price: number;
+    }[];
+  };
 }
 
 export function RequestQuoteDialog({
@@ -30,6 +40,7 @@ export function RequestQuoteDialog({
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     company: "",
     message: "",
   });
@@ -39,7 +50,7 @@ export function RequestQuoteDialog({
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Validate form
+    // Basic validation
     if (!formData.name.trim() || !formData.email.trim()) {
       toast({
         title: "Validation error",
@@ -50,7 +61,6 @@ export function RequestQuoteDialog({
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast({
@@ -62,31 +72,56 @@ export function RequestQuoteDialog({
       return;
     }
 
+    // Build the payload in your requested format
     const quotePayload = {
-      customer: {
-        name: formData.name,
-        email: formData.email,
-        company: formData.company || undefined,
-        message: formData.message,
+      configuratorId:
+        selectedConfig?.configuratorId || "default_configurator_id",
+      customerEmail: formData.email,
+      customerName: formData.name,
+      customerPhone: formData.phone || "",
+      selectedOptions: selectedConfig?.selectedOptions || {},
+      totalPrice: parseFloat(totalPrice as string) || 0,
+      configuration: {
+        items: selectedConfig?.items || [],
       },
-      configuration: selectedConfig,
-      totalPrice: totalPrice,
-      timestamp: new Date().toISOString(),
+      metadata: {
+        company: formData.company || "",
+        message: formData.message || "",
+        timestamp: new Date().toISOString(),
+      },
     };
 
-    // Simulate API call with realistic delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Simulate API call (replace this with your real POST request)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    console.log("Quote Request Payload (ready for backend):", quotePayload);
+      console.log("Quote Request Payload (ready for backend):", quotePayload);
 
-    toast({
-      title: "Quote request sent!",
-      description: "Your quote request has been submitted successfully. We'll get back to you within 24 hours.",
-    });
+      toast({
+        title: "Quote request sent!",
+        description:
+          "Your quote request has been submitted successfully. We'll get back to you within 24 hours.",
+      });
 
-    setIsSubmitting(false);
-    onOpenChange(false);
-    setFormData({ name: "", email: "", company: "", message: "" });
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        company: "",
+        message: "",
+      });
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Quote submission failed:", error);
+      toast({
+        title: "Something went wrong",
+        description:
+          "Could not send your quote request. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -98,9 +133,11 @@ export function RequestQuoteDialog({
 
         <div className="mb-4 p-4 bg-accent rounded-lg border border-primary/20">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Total Configuration Price:</span>
+            <span className="text-muted-foreground">
+              Total Configuration Price:
+            </span>
             <span className="text-2xl font-bold text-primary">
-              {totalPrice}
+              ${parseFloat(totalPrice as string).toFixed(2)}
             </span>
           </div>
         </div>
@@ -112,7 +149,9 @@ export function RequestQuoteDialog({
               id="name"
               required
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="Enter your full name"
             />
           </div>
@@ -124,8 +163,23 @@ export function RequestQuoteDialog({
               type="email"
               required
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
               placeholder="your.email@example.com"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              placeholder="+1-555-0123"
             />
           </div>
 
@@ -134,7 +188,9 @@ export function RequestQuoteDialog({
             <Input
               id="company"
               value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, company: e.target.value })
+              }
               placeholder="Your company name (optional)"
             />
           </div>
@@ -144,17 +200,19 @@ export function RequestQuoteDialog({
             <Textarea
               id="message"
               value={formData.message}
-              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, message: e.target.value })
+              }
               placeholder="Any additional requirements or questions..."
               rows={4}
             />
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)} 
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
               className="flex-1"
               disabled={isSubmitting}
             >

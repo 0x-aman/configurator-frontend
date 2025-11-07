@@ -34,7 +34,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
 const Index = () => {
-  const { token, apiKey: urlApiKey, isAdminMode } = useAuthToken();
+  const { token, publicId: urlApiKey, isAdminMode, publicKey } = useAuthToken();
   const {
     isVerified,
     verifiedPublicId,
@@ -48,7 +48,9 @@ const Index = () => {
     categories: apiCategories,
     configuratorFound,
     isLoading: isLoadingData,
-  } = useConfiguratorData(activeApiKey);
+    errorMessage,
+    error,
+  } = useConfiguratorData(activeApiKey, publicKey);
 
   const {
     state,
@@ -252,9 +254,13 @@ const Index = () => {
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <p className="font-semibold mb-1">Invalid API Key</p>
+            <p className="font-semibold mb-1">
+              {errorMessage ?? "Invalid API Key"}
+            </p>
             <p>
-              The provided API key is invalid or the configurator was not found.
+              {errorMessage
+                ? "An error occurred while fetching the configurator. See message above."
+                : "The provided API key is invalid or the configurator was not found."}
             </p>
           </AlertDescription>
         </Alert>

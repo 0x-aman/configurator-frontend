@@ -7,9 +7,13 @@ interface ConfiguratorQueryResult {
   categories: ConfigCategory[];
   configuratorFound: boolean;
   configurator?: ConfiguratorData;
+  errorMessage?: string;
 }
 
-export function useConfiguratorData(apiKey: string | null) {
+export function useConfiguratorData(
+  apiKey: string | null,
+  publicKey: string | null
+) {
   const { data, isLoading, error } = useQuery<ConfiguratorQueryResult>({
     queryKey: ["configurator", apiKey],
     queryFn: async () => {
@@ -17,7 +21,7 @@ export function useConfiguratorData(apiKey: string | null) {
         return { categories: [], configuratorFound: false };
       }
 
-      const resp = await configuratorService.getByPublicId(apiKey);
+      const resp = await configuratorService.getByPublicId(apiKey, publicKey);
 
       if (resp.success && resp.data) {
         return {
@@ -27,8 +31,13 @@ export function useConfiguratorData(apiKey: string | null) {
           id: resp.data.publicId,
         };
       }
-
-      return { categories: [], configuratorFound: false };
+      console.log(resp, "resp");
+      // If API returned an error, pass its message back so the UI can display it
+      return {
+        categories: [],
+        configuratorFound: false,
+        errorMessage: resp.message,
+      };
     },
     enabled: !!apiKey,
   });
@@ -37,6 +46,7 @@ export function useConfiguratorData(apiKey: string | null) {
     categories: data?.categories ?? [],
     configuratorFound: data?.configuratorFound ?? false,
     configurator: data?.configurator,
+    errorMessage: data?.errorMessage,
     isLoading,
     error,
   };
