@@ -39,11 +39,14 @@ export const configuratorService = {
     const embedOrigin =
       localStorage.getItem("embedOrigin") || window.location.origin;
 
-    return apiClient.get<ConfiguratorData>(`/api/configurator/${publicId}`, {
-      headers: {
-        "X-Embed-Origin": embedOrigin,
-      },
-    });
+    return apiClient.get<ConfiguratorData>(
+      `/api/configurator/${publicId}?publicKey=${publicKey}`,
+      {
+        headers: {
+          "X-Embed-Origin": embedOrigin,
+        },
+      }
+    );
   },
 
   async list() {
