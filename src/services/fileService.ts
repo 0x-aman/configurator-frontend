@@ -1,27 +1,60 @@
 import { apiClient } from '@/lib/api-client';
+import { ApiResponse, FileUpload, FileType, SignedUploadUrl } from '@/types/api';
 
-export interface UploadResponse {
-  url: string;
-  blobName: string;
-  container: string;
-}
-
+/**
+ * File Service
+ * Handles all file-related API calls
+ */
 export const fileService = {
-  async upload(file: File, scope?: { configuratorId?: string; categoryId?: string; optionId?: string }) {
-    const fd = new FormData();
-    fd.append('file', file);
-    if (scope?.configuratorId) fd.append('configuratorId', scope.configuratorId);
-    if (scope?.categoryId) fd.append('categoryId', scope.categoryId);
-    if (scope?.optionId) fd.append('optionId', scope.optionId);
-    return apiClient.upload<UploadResponse>('/api/files/upload', fd);
+  /**
+   * Upload file (requires token in FormData)
+   */
+  async upload(file: File, token: string): Promise<ApiResponse<FileUpload>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('token', token);
+
+    return apiClient.upload<FileUpload>('/api/files/upload', formData);
   },
 
-  async list(configuratorId?: string) {
-    const suffix = configuratorId ? `?configuratorId=${encodeURIComponent(configuratorId)}` : '';
-    return apiClient.get(`/api/files/list${suffix}`);
+  /**
+   * Get signed upload URL for direct upload (requires token)
+   */
+  async getSignedUploadUrl(
+    filename: string,
+    contentType: string,
+    token: string
+  ): Promise<ApiResponse<SignedUploadUrl>> {
+    return apiClient.get<SignedUploadUrl>(
+      `/api/files/upload?filename=${encodeURIComponent(filename)}&contentType=${encodeURIComponent(contentType)}`,
+      {
+        data: { token },
+      }
+    );
   },
 
-  async delete(blobName: string, container: string) {
-    return apiClient.post('/api/files/delete', { blobName, container });
-  }
+  /**
+   * List files (requires token)
+   */
+  async list(token: string, type?: FileType): Promise<ApiResponse<FileUpload[]>> {
+    const endpoint = type
+      ? `/api/files/list?type=${encodeURIComponent(type)}`
+      : '/api/files/list';
+
+    return apiClient.get<FileUpload[]>(endpoint, {
+      data: { token },
+    });
+  },
+
+  /**
+   * Delete file (requires token)
+   */
+  async delete(id: string, token: string): Promise<ApiResponse<null>> {
+    return apiClient.delete<null>(
+      `/api/files/delete?id=${encodeURIComponent(id)}`,
+      {
+        data: { token },
+      }
+    );
+  },
 };

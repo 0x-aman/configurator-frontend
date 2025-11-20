@@ -34,21 +34,26 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
 const Index = () => {
-  const { token, apiKey: urlApiKey, isAdminMode } = useAuthToken();
+  const { token, publicId, publicKey, isAdminMode, isInitialized } =
+    useAuthToken();
+
   const {
     isVerified,
     verifiedPublicId,
     isLoading: isVerifyingToken,
+    verifiedPublicKey,
   } = useAdminVerification(token, isAdminMode);
 
-  // Determine which apiKey to use: verified publicId from token or from URL
-  const activeApiKey = isAdminMode ? verifiedPublicId : urlApiKey;
+  // Determine which credentials to use: admin mode uses verified publicId, public mode uses URL params
+  const activePublicId = isAdminMode ? verifiedPublicId : publicId;
+  const activePublicKey = isAdminMode ? verifiedPublicKey : publicKey;
 
   const {
     categories: apiCategories,
     configuratorFound,
     isLoading: isLoadingData,
-  } = useConfiguratorData(activeApiKey);
+    configuratorId: retrievedConfiguratorId,
+  } = useConfiguratorData(activePublicId, activePublicKey);
 
   const {
     state,
@@ -164,7 +169,9 @@ const Index = () => {
 
   // set configuratorId
   useEffect(() => {
-    setConfiguratorId(apiCategories[0]?.configuratorId);
+    setConfiguratorId(
+      retrievedConfiguratorId || apiCategories[0]?.configuratorId
+    );
     console.log(apiCategories);
   }, [apiCategories]);
 
@@ -204,14 +211,16 @@ const Index = () => {
     });
   };
 
-  // Show loading while verifying token or loading data
-  if (isVerifyingToken || isLoadingData) {
+  // Show loading while initializing, verifying token, or loading data
+  if (!isInitialized || isVerifyingToken || isLoadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">
-            {isVerifyingToken
+            {!isInitialized
+              ? "Initializing..."
+              : isVerifyingToken
               ? "Verifying access..."
               : "Loading configurator..."}
           </p>
@@ -233,11 +242,11 @@ const Index = () => {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() =>
-                (window.location.href = "http://localhost:3000/dashboard/embed")
-              }
+              onClick={() => {
+                window.location.href = "/";
+              }}
             >
-              Go to Dashboard
+              Return to Home
             </Button>
           </AlertDescription>
         </Alert>
@@ -246,15 +255,16 @@ const Index = () => {
   }
 
   // Show error if configurator not found
-  if (!configuratorFound && activeApiKey) {
+  if (!configuratorFound && activePublicId) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <p className="font-semibold mb-1">Invalid API Key</p>
+            <p className="font-semibold mb-1">Configurator Not Found</p>
             <p>
-              The provided API key is invalid or the configurator was not found.
+              The configurator you're looking for doesn't exist or you don't
+              have access to it.
             </p>
           </AlertDescription>
         </Alert>
@@ -284,14 +294,21 @@ const Index = () => {
     );
   }
 
-  // Show error if no apiKey is provided
-  if (!activeApiKey) {
+  // Show error if no credentials provided
+  if (!activePublicId || !activePublicKey) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            No configurator specified. Please provide a valid apiKey parameter.
+            <p className="font-semibold mb-1">Missing Credentials</p>
+            <p>
+              No configurator specified. Please provide valid publicId and
+              publicKey parameters.
+            </p>
+            <p className="text-sm mt-2">
+              Example: ?publicId=your_id&publicKey=your_key
+            </p>
           </AlertDescription>
         </Alert>
       </div>

@@ -1,43 +1,66 @@
 import { useQuery } from "@tanstack/react-query";
 import { configuratorService } from "@/services/configuratorService";
-import { ConfigCategory } from "@/types/configurator";
-import { ConfiguratorData } from "@/services/configuratorService";
+import { Configurator, Category } from "@/types/api";
+import { getErrorMessage } from "@/lib/api-client";
 
 interface ConfiguratorQueryResult {
-  categories: ConfigCategory[];
+  categories: Category[];
   configuratorFound: boolean;
-  configurator?: ConfiguratorData;
+  configurator?: Configurator;
+  configuratorId?: string;
 }
 
-export function useConfiguratorData(apiKey: string | null) {
-  const { data, isLoading, error } = useQuery<ConfiguratorQueryResult>({
-    queryKey: ["configurator", apiKey],
-    queryFn: async () => {
-      if (!apiKey) {
-        return { categories: [], configuratorFound: false };
-      }
+/**
+ * Hook to fetch configurator data
+ * Requires both publicId and publicKey for public mode
+ */
+export function useConfiguratorData(
+  publicId: string | null,
+  publicKey: string | null
+) {
+  const { data, isLoading, error, refetch } = useQuery<ConfiguratorQueryResult>(
+    {
+      queryKey: ["configurator", publicId, publicKey],
+      queryFn: async () => {
+        if (!publicId || !publicKey) {
+          return { categories: [], configuratorFound: false };
+        }
 
-      const resp = await configuratorService.getByPublicId(apiKey);
+        try {
+          const response = await configuratorService.getByPublicId(
+            publicId,
+            publicKey
+          );
 
-      if (resp.success && resp.data) {
-        return {
-          categories: (resp.data.categories as ConfigCategory[]) || [],
-          configuratorFound: true,
-          configurator: resp.data,
-          id: resp.data.publicId,
-        };
-      }
+          if (response.success && response.data) {
+            return {
+              categories: response.data.categories || [],
+              configuratorFound: true,
+              configurator: response.data,
+              configuratorId: response.data.id,
+            };
+          }
 
-      return { categories: [], configuratorFound: false };
-    },
-    enabled: !!apiKey,
-  });
+          return { categories: [], configuratorFound: false };
+        } catch (err) {
+          const errorMessage = getErrorMessage(err);
+          console.error("[Configurator Data Error]", errorMessage);
+          throw err;
+        }
+      },
+      enabled: !!publicId && !!publicKey,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 2,
+    }
+  );
 
   return {
     categories: data?.categories ?? [],
     configuratorFound: data?.configuratorFound ?? false,
     configurator: data?.configurator,
+    configuratorId: data?.configuratorId,
     isLoading,
-    error,
+    error: error ? getErrorMessage(error) : null,
+    refetch,
   };
 }

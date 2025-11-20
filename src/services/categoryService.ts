@@ -1,50 +1,40 @@
-import { apiClient } from "@/lib/api-client";
-import { ConfigCategory } from "@/types/configurator";
+import { apiClient } from '@/lib/api-client';
+import { ApiResponse, Category, CreateCategoryInput, UpdateCategoryInput } from '@/types/api';
 
-export interface CreateCategoryInput {
-  token: string;
-  name: string;
-  categoryType?: string;
-  description?: string;
-  isPrimary?: boolean;
-  isRequired?: boolean;
-  orderIndex?: number;
-  configuratorId: string;
-}
-
-export interface UpdateCategoryInput {
-  token: string;
-  id: string;
-  name?: string;
-  categoryType?: string;
-  description?: string;
-  isPrimary?: boolean;
-  isRequired?: boolean;
-  orderIndex?: number;
-  isActive?: boolean;
-}
-
+/**
+ * Category Service
+ * Handles all category-related API calls
+ */
 export const categoryService = {
-  async create(input: CreateCategoryInput) {
-    return apiClient.post<ConfigCategory>("/api/category/create", input);
+  /**
+   * Create a new category (requires token)
+   */
+  async create(input: CreateCategoryInput): Promise<ApiResponse<Category>> {
+    return apiClient.post<Category>('/api/category/create', input);
   },
 
-  async list(configuratorId: string) {
-    return apiClient.get<ConfigCategory[]>(
+  /**
+   * List categories for a configurator (public endpoint)
+   */
+  async list(configuratorId: string): Promise<ApiResponse<Category[]>> {
+    return apiClient.get<Category[]>(
       `/api/category/list?configuratorId=${encodeURIComponent(configuratorId)}`
     );
   },
 
-  async update(input: UpdateCategoryInput) {
-    return apiClient.post<ConfigCategory>("/api/category/update", input);
+  /**
+   * Update category (requires token)
+   */
+  async update(input: UpdateCategoryInput): Promise<ApiResponse<Category>> {
+    return apiClient.put<Category>('/api/category/update', input);
   },
 
-  // Soft delete via update if backend has no delete route
-  async delete(id: string, token: string) {
-    return apiClient.post<ConfigCategory>("/api/category/delete", {
-      id,
-      token,
-      isActive: false,
-    });
+  /**
+   * Delete category (requires token)
+   */
+  async delete(id: string, token: string): Promise<ApiResponse<null>> {
+    return apiClient.delete<null>(
+      `/api/category/update?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`
+    );
   },
 };

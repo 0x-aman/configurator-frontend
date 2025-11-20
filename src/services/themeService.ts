@@ -1,107 +1,53 @@
-import { Theme } from "@/types/theme";
+import { apiClient } from '@/lib/api-client';
+import { ApiResponse, Theme, CreateThemeInput, UpdateThemeInput } from '@/types/api';
 
-const STORAGE_KEY = 'lovable_configurator_data';
-const MOCK_KEY = "themes";
-
-const mockStorage = {
-  get<T>(key: string, defaultValue: T): T {
-    const stored = localStorage.getItem(`${STORAGE_KEY}_${key}`);
-    return stored ? JSON.parse(stored) : defaultValue;
+/**
+ * Theme Service
+ * Handles all theme-related API calls
+ * Replaces localStorage-based implementation with real API calls
+ */
+export const themeService = {
+  /**
+   * Create a new theme (requires token)
+   */
+  async create(input: CreateThemeInput): Promise<ApiResponse<Theme>> {
+    return apiClient.post<Theme>('/api/theme/create', input);
   },
 
-  set<T>(key: string, value: T): void {
-    localStorage.setItem(`${STORAGE_KEY}_${key}`, JSON.stringify(value));
+  /**
+   * List all themes (requires token)
+   */
+  async list(token: string): Promise<ApiResponse<Theme[]>> {
+    return apiClient.get<Theme[]>('/api/theme/list', {
+      data: { token },
+    });
   },
 
-  remove(key: string): void {
-    localStorage.removeItem(`${STORAGE_KEY}_${key}`);
+  /**
+   * Update theme (requires token)
+   */
+  async update(input: UpdateThemeInput): Promise<ApiResponse<Theme>> {
+    return apiClient.put<Theme>('/api/theme/update', input);
   },
-};
 
-const DEFAULT_THEME: Theme = {
-  id: "default",
-  name: "FinJet Industrial",
-  primaryColor: "#0078FF",
-  textColorMode: "auto",
-  isActive: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
-
-class ThemeService {
-  async getActiveTheme(): Promise<Theme> {
-    const themes = mockStorage.get<Theme[]>(MOCK_KEY, [DEFAULT_THEME]);
-    const activeTheme = themes.find((t) => t.isActive);
-    return activeTheme || DEFAULT_THEME;
-  }
-
-  async saveTheme(theme: Partial<Theme>): Promise<Theme> {
-    const themes = mockStorage.get<Theme[]>(MOCK_KEY, [DEFAULT_THEME]);
-    
-    // Deactivate all themes
-    const updatedThemes = themes.map((t) => ({ ...t, isActive: false }));
-
-    const newTheme: Theme = {
-      id: theme.id || `theme-${Date.now()}`,
-      name: theme.name || "Custom Theme",
-      primaryColor: theme.primaryColor || DEFAULT_THEME.primaryColor,
-      textColorMode: theme.textColorMode || "auto",
-      customTextColor: theme.customTextColor,
-      isActive: true,
-      createdAt: theme.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    updatedThemes.push(newTheme);
-    mockStorage.set(MOCK_KEY, updatedThemes);
-    return newTheme;
-  }
-
-  async updateTheme(themeId: string, updates: Partial<Theme>): Promise<Theme> {
-    const themes = mockStorage.get<Theme[]>(MOCK_KEY, [DEFAULT_THEME]);
-    const themeIndex = themes.findIndex((t) => t.id === themeId);
-
-    if (themeIndex === -1) {
-      throw new Error("Theme not found");
-    }
-
-    const updatedTheme: Theme = {
-      ...themes[themeIndex],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    themes[themeIndex] = updatedTheme;
-    mockStorage.set(MOCK_KEY, themes);
-    return updatedTheme;
-  }
-
-  async resetToDefault(): Promise<Theme> {
-    const themes = mockStorage.get<Theme[]>(MOCK_KEY, [DEFAULT_THEME]);
-    
-    // Deactivate all themes
-    const updatedThemes = themes.map((t) => ({ ...t, isActive: false }));
-
-    let defaultTheme = updatedThemes.find(
-      (t) => t.primaryColor === DEFAULT_THEME.primaryColor && t.name === DEFAULT_THEME.name
+  /**
+   * Delete theme (requires token)
+   */
+  async delete(id: string, token: string): Promise<ApiResponse<null>> {
+    return apiClient.delete<null>(
+      `/api/theme/update?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`
     );
+  },
 
-    if (!defaultTheme) {
-      defaultTheme = { ...DEFAULT_THEME };
-      updatedThemes.push(defaultTheme);
+  /**
+   * Get active theme (convenience method)
+   */
+  async getActiveTheme(token: string): Promise<Theme | null> {
+    const response = await this.list(token);
+    if (response.success && response.data) {
+      const activeTheme = response.data.find((t) => t.isActive);
+      return activeTheme || response.data[0] || null;
     }
-
-    defaultTheme.isActive = true;
-    defaultTheme.updatedAt = new Date().toISOString();
-    mockStorage.set(MOCK_KEY, updatedThemes);
-    return defaultTheme;
-  }
-
-  async deleteTheme(themeId: string): Promise<void> {
-    const themes = mockStorage.get<Theme[]>(MOCK_KEY, [DEFAULT_THEME]);
-    const filtered = themes.filter((t) => t.id !== themeId);
-    mockStorage.set(MOCK_KEY, filtered);
-  }
-}
-
-export const themeService = new ThemeService();
+    return null;
+  },
+};
