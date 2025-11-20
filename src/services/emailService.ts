@@ -1,26 +1,45 @@
 import { apiClient } from '@/lib/api-client';
+import {
+  ApiResponse,
+  EmailTemplate,
+  EmailPreviewInput,
+  EmailPreviewResponse,
+  SendEmailInput,
+  SendEmailResponse,
+} from '@/types/api';
 
-export interface EmailTemplate {
-  templateKey: string;
-  subject: string;
-  html?: string;
-  text?: string;
-}
-
+/**
+ * Email Service
+ * Handles all email-related API calls
+ */
 export const emailService = {
-  async list() {
-    return apiClient.get<EmailTemplate[]>('/api/email/templates');
+  /**
+   * Preview email with template or custom content
+   */
+  async preview(input: EmailPreviewInput): Promise<ApiResponse<EmailPreviewResponse>> {
+    return apiClient.post<EmailPreviewResponse>('/api/email/preview', input);
   },
 
-  async upsert(template: EmailTemplate, token: string) {
-    return apiClient.post('/api/email/templates', { ...template, token });
+  /**
+   * List email templates (requires token)
+   */
+  async listTemplates(
+    token: string,
+    type?: EmailTemplate['templateType']
+  ): Promise<ApiResponse<EmailTemplate[]>> {
+    const endpoint = type
+      ? `/api/email/templates?type=${encodeURIComponent(type)}`
+      : '/api/email/templates';
+
+    return apiClient.get<EmailTemplate[]>(endpoint, {
+      data: { token },
+    });
   },
 
-  async preview(templateKey: string, data: any) {
-    return apiClient.post<string>('/api/email/preview', { templateKey, data });
-  },
-
-  async send(templateKey: string, to: string, data: any) {
-    return apiClient.post('/api/email/send', { templateKey, to, data });
+  /**
+   * Send email (requires token)
+   */
+  async send(input: SendEmailInput): Promise<ApiResponse<SendEmailResponse>> {
+    return apiClient.post<SendEmailResponse>('/api/email/send', input);
   },
 };
