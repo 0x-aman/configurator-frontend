@@ -80,7 +80,7 @@ export function RequestQuoteDialog({
       customerName: formData.name,
       customerPhone: formData.phone || "",
       selectedOptions: selectedConfig?.selectedOptions || {},
-      totalPrice: parseFloat(totalPrice as string) || 0,
+      totalPrice: typeof totalPrice === 'number' ? totalPrice : (parseFloat(totalPrice as string) || 0),
       configuration: {
         items: selectedConfig?.items || [],
       },
@@ -137,7 +137,7 @@ export function RequestQuoteDialog({
               Total Configuration Price:
             </span>
             <span className="text-2xl font-bold text-primary">
-              ${parseFloat(totalPrice as string).toFixed(2)}
+              ${(typeof totalPrice === 'number' ? totalPrice : parseFloat(totalPrice as string) || 0).toFixed(2)}
             </span>
           </div>
         </div>
