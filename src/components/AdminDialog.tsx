@@ -27,7 +27,7 @@ interface AdminDialogProps {
   categories?: ConfigCategory[];
   editingOption?: ConfigOption | null;
   editingCategory?: ConfigCategory | null;
-  onAddCategory?: (category: ConfigCategory) => void;
+  onAddCategory?: (category: ConfigCategory) => Promise<ConfigCategory | null>;
   onUpdateCategory?: (category: ConfigCategory) => void;
   onAddOption?: (categoryId: string, option: ConfigOption) => void;
   onUpdateOption?: (categoryId: string, option: ConfigOption) => void;
@@ -147,7 +147,7 @@ export function AdminDialog({
     setCategoryAttributesTemplate([]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (mode === "category") {
@@ -163,9 +163,9 @@ export function AdminDialog({
         });
         onOpenChange(false);
       } else if (onAddCategory) {
-        const newCategoryId = `cat-${Date.now()}`;
-        onAddCategory({
-          id: newCategoryId,
+        // Don't generate temporary ID - let backend create it
+        const createdCategory = await onAddCategory({
+          id: "", // Backend will assign the real ID
           name: categoryName,
           categoryType,
           options: [],
@@ -176,11 +176,13 @@ export function AdminDialog({
               : undefined,
           configuratorId,
         });
+        
         resetCategoryForm();
         onOpenChange(false);
-        // Trigger option form for the newly created category
-        if (onCategoryCreated) {
-          onCategoryCreated(newCategoryId);
+        
+        // Trigger option form with the REAL category ID from backend
+        if (createdCategory && onCategoryCreated) {
+          onCategoryCreated(createdCategory.id);
         }
       }
     } else if (mode === "option" && categoryId) {

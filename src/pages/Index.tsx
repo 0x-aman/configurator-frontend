@@ -175,10 +175,10 @@ const Index = () => {
     console.log(apiCategories);
   }, [apiCategories]);
 
-  const handleCSVImport = (
+  const handleCSVImport = async (
     data: { category: string; options: ConfigOption[] }[]
   ) => {
-    data.forEach(({ category, options }) => {
+    for (const { category, options } of data) {
       // Check if category exists
       const existingCategory = state.categories.find(
         (c) => c.name === category
@@ -186,29 +186,29 @@ const Index = () => {
 
       if (existingCategory) {
         // Add options to existing category
-        options.forEach((option) => {
-          onAddOption(existingCategory.id, option);
-        });
+        for (const option of options) {
+          await onAddOption(existingCategory.id, option);
+        }
       } else {
-        // Create new category and add options
+        // Create new category and wait for the real ID from backend
         const newCategory: ConfigCategory = {
-          id: `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: "", // Backend will assign the real ID
           name: category,
           options: [],
           relatedCategories: [],
           configuratorId,
         };
 
-        onAddCategory(newCategory);
+        const createdCategory = await onAddCategory(newCategory);
 
-        // Add options after a short delay to ensure category is created
-        setTimeout(() => {
-          options.forEach((option) => {
-            onAddOption(newCategory.id, option);
-          });
-        }, 100);
+        // Add options using the REAL category ID from backend
+        if (createdCategory) {
+          for (const option of options) {
+            await onAddOption(createdCategory.id, option);
+          }
+        }
       }
-    });
+    }
   };
 
   // Show loading while initializing, verifying token, or loading data

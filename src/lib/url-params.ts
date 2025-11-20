@@ -2,9 +2,9 @@
  * URL Parameter Handling and Token Management
  * 
  * This module handles:
- * - Admin mode: Extract token from URL, store securely, sanitize URL
+ * - Admin mode: Extract token from URL, store securely in sessionStorage
  * - Public mode: Extract publicId and publicKey from URL
- * - Secure token storage with localStorage fallback
+ * - Secure token storage using sessionStorage for enhanced security
  */
 
 const TOKEN_STORAGE_KEY = 'konfigra_edit_token';
@@ -38,22 +38,22 @@ export function extractUrlParams(): UrlParams {
 }
 
 /**
- * Store edit token securely
+ * Store edit token securely in sessionStorage
  */
 export function storeEditToken(token: string): void {
   try {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
   } catch (error) {
     console.error('Failed to store edit token:', error);
   }
 }
 
 /**
- * Get stored edit token
+ * Get stored edit token from sessionStorage
  */
 export function getStoredEditToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY);
   } catch (error) {
     console.error('Failed to retrieve edit token:', error);
     return null;
@@ -61,36 +61,36 @@ export function getStoredEditToken(): string | null {
 }
 
 /**
- * Clear stored edit token
+ * Clear stored edit token from sessionStorage
  */
 export function clearEditToken(): void {
   try {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
   } catch (error) {
     console.error('Failed to clear edit token:', error);
   }
 }
 
 /**
- * Store public credentials
+ * Store public credentials in sessionStorage
  */
 export function storePublicCredentials(publicId: string, publicKey: string): void {
   try {
-    localStorage.setItem(PUBLIC_ID_KEY, publicId);
-    localStorage.setItem(PUBLIC_KEY_KEY, publicKey);
+    sessionStorage.setItem(PUBLIC_ID_KEY, publicId);
+    sessionStorage.setItem(PUBLIC_KEY_KEY, publicKey);
   } catch (error) {
     console.error('Failed to store public credentials:', error);
   }
 }
 
 /**
- * Get stored public credentials
+ * Get stored public credentials from sessionStorage
  */
 export function getStoredPublicCredentials(): { publicId: string | null; publicKey: string | null } {
   try {
     return {
-      publicId: localStorage.getItem(PUBLIC_ID_KEY),
-      publicKey: localStorage.getItem(PUBLIC_KEY_KEY),
+      publicId: sessionStorage.getItem(PUBLIC_ID_KEY),
+      publicKey: sessionStorage.getItem(PUBLIC_KEY_KEY),
     };
   } catch (error) {
     console.error('Failed to retrieve public credentials:', error);
@@ -99,12 +99,12 @@ export function getStoredPublicCredentials(): { publicId: string | null; publicK
 }
 
 /**
- * Clear public credentials
+ * Clear public credentials from sessionStorage
  */
 export function clearPublicCredentials(): void {
   try {
-    localStorage.removeItem(PUBLIC_ID_KEY);
-    localStorage.removeItem(PUBLIC_KEY_KEY);
+    sessionStorage.removeItem(PUBLIC_ID_KEY);
+    sessionStorage.removeItem(PUBLIC_KEY_KEY);
   } catch (error) {
     console.error('Failed to clear public credentials:', error);
   }

@@ -236,7 +236,7 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
      MUTATIONS
   ------------------------------------------------------- */
 
-  const onAddCategory = async (category: ConfigCategory) => {
+  const onAddCategory = async (category: ConfigCategory): Promise<ConfigCategory | null> => {
     try {
       const response = await categoryService.create({
         token,
@@ -249,22 +249,28 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
       });
 
       if (response.success && response.data) {
+        const createdCategory = normalizeCategory(response.data);
         dispatch({
           type: "ADD_CATEGORY",
-          category: normalizeCategory(response.data),
+          category: createdCategory,
         });
 
         toast({
           title: "Category added",
           description: `"${category.name}" created successfully.`,
         });
+        
+        return createdCategory;
       }
-    } catch {
+      return null;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create category.";
       toast({
         title: "Error",
-        description: "Failed to create category.",
+        description: errorMessage,
         variant: "destructive",
       });
+      return null;
     }
   };
 
@@ -291,10 +297,11 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           description: `"${category.name}" updated successfully.`,
         });
       }
-    } catch {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update category.";
       toast({
         title: "Error",
-        description: "Failed to update category.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -333,10 +340,11 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           description: `"${option.label}" created successfully.`,
         });
       }
-    } catch {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create option.";
       toast({
         title: "Error",
-        description: "Failed to create option.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -380,10 +388,11 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           description: `"${option.label}" updated successfully.`,
         });
       }
-    } catch {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update option.";
       toast({
         title: "Error",
-        description: "Failed to update option.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -403,10 +412,11 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           description: `"${category?.name ?? "Category"}" deleted.`,
         });
       }
-    } catch {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete category.";
       toast({
         title: "Error",
-        description: "Failed to delete category.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -427,10 +437,11 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           description: `"${option?.label ?? "Option"}" deleted.`,
         });
       }
-    } catch {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete option.";
       toast({
         title: "Error",
-        description: "Failed to delete option.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

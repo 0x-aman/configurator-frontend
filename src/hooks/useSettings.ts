@@ -85,21 +85,12 @@ const getDefaultSettings = (): AppSettings => ({
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(getDefaultSettings);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSettings(parsed);
-      } catch (error) {
-        console.error("Failed to parse settings:", error);
-      }
-    }
-  }, []);
+  // Settings are now kept in memory only - no persistence
+  // This improves security by not storing sensitive data locally
 
   const saveSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+    // No longer persisting to localStorage for security
   };
 
   const updateCurrency = (currency: Currency) => {
