@@ -1,28 +1,52 @@
 import { apiClient } from '@/lib/api-client';
+import { ApiResponse, Quote, CreateQuoteInput, UpdateQuoteInput } from '@/types/api';
 
-export interface QuoteInput {
-  configuratorId: string;
-  selections: Array<{ categoryId: string; optionId: string }>;
-  clientInfo: { name: string; email: string; phone?: string };
-  total: number;
-  meta?: any;
-}
-
+/**
+ * Quote Service
+ * Handles all quote-related API calls
+ */
 export const quoteService = {
-  async create(input: QuoteInput) {
-    return apiClient.post<{ quoteCode: string }>('/api/quote/create', input);
+  /**
+   * Create a new quote (public endpoint)
+   * Requires X-Public-Key header
+   */
+  async create(input: CreateQuoteInput): Promise<ApiResponse<Quote>> {
+    return apiClient.post<Quote>('/api/quote/create', input);
   },
 
-  async list(configuratorId?: string) {
-    const suffix = configuratorId ? `?configuratorId=${encodeURIComponent(configuratorId)}` : '';
-    return apiClient.get('/api/quote/list' + suffix);
+  /**
+   * List quotes (requires token)
+   */
+  async list(
+    token: string,
+    filters?: {
+      status?: Quote['status'];
+      configuratorId?: string;
+    }
+  ): Promise<ApiResponse<Quote[]>> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.configuratorId) params.append('configuratorId', filters.configuratorId);
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/api/quote/list?${queryString}` : '/api/quote/list';
+
+    return apiClient.get<Quote[]>(endpoint, {
+      data: { token },
+    });
   },
 
-  async getByCode(quoteCode: string) {
-    return apiClient.get(`/api/quote/${encodeURIComponent(quoteCode)}`);
+  /**
+   * Get quote by code (public endpoint)
+   */
+  async getByCode(quoteCode: string): Promise<ApiResponse<Quote>> {
+    return apiClient.get<Quote>(`/api/quote/${encodeURIComponent(quoteCode)}`);
   },
 
-  async update(id: string, data: any, token: string) {
-    return apiClient.post('/api/quote/update', { id, token, ...data });
+  /**
+   * Update quote (requires token)
+   */
+  async update(input: UpdateQuoteInput): Promise<ApiResponse<Quote>> {
+    return apiClient.put<Quote>('/api/quote/update', input);
   },
 };

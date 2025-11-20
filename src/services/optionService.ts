@@ -1,54 +1,40 @@
-import { apiClient } from "@/lib/api-client";
-import { ConfigOption } from "@/types/configurator";
+import { apiClient } from '@/lib/api-client';
+import { ApiResponse, Option, CreateOptionInput, UpdateOptionInput } from '@/types/api';
 
-export interface CreateOptionInput {
-  token: string;
-  categoryId: string;
-  label: string;
-  price: number;
-  description?: string;
-  sku?: string;
-  imageUrl?: string;
-  isDefault?: boolean;
-  isActive?: boolean;
-  inStock?: boolean;
-  orderIndex?: number;
-}
-
-export interface UpdateOptionInput {
-  token: string;
-  id: string;
-  label?: string;
-  price?: number;
-  description?: string;
-  sku?: string;
-  imageUrl?: string;
-  isDefault?: boolean;
-  isActive?: boolean;
-  inStock?: boolean;
-  orderIndex?: number;
-}
-
+/**
+ * Option Service
+ * Handles all option-related API calls
+ */
 export const optionService = {
-  async create(input: CreateOptionInput) {
-    return apiClient.post<ConfigOption>("/api/option/create", input);
+  /**
+   * Create a new option (requires token)
+   */
+  async create(input: CreateOptionInput): Promise<ApiResponse<Option>> {
+    return apiClient.post<Option>('/api/option/create', input);
   },
 
-  async list(categoryId: string) {
-    return apiClient.get<ConfigOption[]>(
+  /**
+   * List options for a category (public endpoint)
+   */
+  async list(categoryId: string): Promise<ApiResponse<Option[]>> {
+    return apiClient.get<Option[]>(
       `/api/option/list?categoryId=${encodeURIComponent(categoryId)}`
     );
   },
 
-  async update(input: UpdateOptionInput) {
-    return apiClient.put<ConfigOption>("/api/option/update", input);
+  /**
+   * Update option (requires token)
+   */
+  async update(input: UpdateOptionInput): Promise<ApiResponse<Option>> {
+    return apiClient.put<Option>('/api/option/update', input);
   },
 
-  async delete(id: string, token: string) {
-    return apiClient.post<ConfigOption>("/api/option/update", {
-      id,
-      token,
-      isActive: false,
-    });
+  /**
+   * Delete option (requires token)
+   */
+  async delete(id: string, token: string): Promise<ApiResponse<null>> {
+    return apiClient.delete<null>(
+      `/api/option/update?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`
+    );
   },
 };
