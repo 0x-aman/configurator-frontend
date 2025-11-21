@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client";
-import { parentOrigin } from "@/lib/embed-origin";
+import { getParentOrigin } from "@/lib/embed-origin";
 import {
   ApiResponse,
   Configurator,
@@ -8,6 +8,8 @@ import {
   EditToken,
   TokenVerification,
 } from "@/types/api";
+
+const origin = getParentOrigin();
 
 /**
  * Configurator Service
@@ -53,7 +55,7 @@ export const configuratorService = {
       )}`,
       {
         headers: {
-          "X-Embed-Origin": parentOrigin || "UNKNOWN",
+          "X-Embed-Origin": origin || "UNKNOWN",
         },
       }
     );
