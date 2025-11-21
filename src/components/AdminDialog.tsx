@@ -18,6 +18,7 @@ import { OptionFormBasic } from "@/components/admin/OptionFormBasic";
 import { OptionFormDetails } from "@/components/admin/OptionFormDetails";
 import { OptionFormCompatibility } from "@/components/admin/OptionFormCompatibility";
 import { OptionAttributeValues } from "@/components/admin/OptionAttributeValues";
+import { Loader2 } from "lucide-react";
 
 interface AdminDialogProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function AdminDialog({
   onCategoryCreated,
   configuratorId,
 }: AdminDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryType, setCategoryType] = useState<CategoryType>("GENERIC");
   const [categoryAttributesTemplate, setCategoryAttributesTemplate] = useState<
@@ -149,93 +151,100 @@ export function AdminDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    if (mode === "category") {
-      if (editingCategory && onUpdateCategory) {
-        onUpdateCategory({
-          ...editingCategory,
-          name: categoryName,
-          categoryType,
-          attributesTemplate:
-            categoryAttributesTemplate.length > 0
-              ? categoryAttributesTemplate
-              : undefined,
-        });
-        onOpenChange(false);
-      } else if (onAddCategory) {
-        // Don't generate temporary ID - let backend create it
-        const createdCategory = await onAddCategory({
-          id: "", // Backend will assign the real ID
-          name: categoryName,
-          categoryType,
-          options: [],
-          relatedCategories: [],
-          attributesTemplate:
-            categoryAttributesTemplate.length > 0
-              ? categoryAttributesTemplate
-              : undefined,
-          configuratorId,
-        });
-        
-        resetCategoryForm();
-        onOpenChange(false);
-        
-        // Trigger option form with the REAL category ID from backend
-        if (createdCategory && onCategoryCreated) {
-          onCategoryCreated(createdCategory.id);
+    try {
+      if (mode === "category") {
+        if (editingCategory && onUpdateCategory) {
+          onUpdateCategory({
+            ...editingCategory,
+            name: categoryName,
+            categoryType,
+            attributesTemplate:
+              categoryAttributesTemplate.length > 0
+                ? categoryAttributesTemplate
+                : undefined,
+          });
+          onOpenChange(false);
+        } else if (onAddCategory) {
+          // Don't generate temporary ID - let backend create it
+          const createdCategory = await onAddCategory({
+            id: "", // Backend will assign the real ID
+            name: categoryName,
+            categoryType,
+            options: [],
+            relatedCategories: [],
+            attributesTemplate:
+              categoryAttributesTemplate.length > 0
+                ? categoryAttributesTemplate
+                : undefined,
+            configuratorId,
+          });
+
+          resetCategoryForm();
+          onOpenChange(false);
+
+          // Trigger option form with the REAL category ID from backend
+          if (createdCategory && onCategoryCreated) {
+            onCategoryCreated(createdCategory.id);
+          }
         }
-      }
-    } else if (mode === "option" && categoryId) {
-      const optionPayload: ConfigOption = {
-        id: editingOption?.id || `option-${Date.now()}`,
-        label: optionLabel,
-        price: parseFloat(optionPrice) || 0,
-        description: optionDescription,
-        image: optionImage || undefined,
-        attributeValues:
-          Object.keys(optionAttributeValues).length > 0
-            ? optionAttributeValues
-            : undefined,
-      };
-
-      if (currentCategoryType === "color" && optionColor) {
-        optionPayload.color = optionColor;
-      }
-      if (currentCategoryType === "power") {
-        if (optionVoltage) optionPayload.voltage = optionVoltage;
-        if (optionWattage) optionPayload.wattage = optionWattage;
-      }
-      if (currentCategoryType === "material" && optionMaterialType) {
-        optionPayload.materialType = optionMaterialType;
-      }
-      if (currentCategoryType === "finish" && optionFinishType) {
-        optionPayload.finishType = optionFinishType;
-      }
-      if (currentCategoryType === "text") {
-        if (optionTextValue) optionPayload.textValue = optionTextValue;
-        if (optionMaxCharacters)
-          optionPayload.maxCharacters = parseInt(optionMaxCharacters);
-      }
-      if (
-        currentCategoryType === "dimension" &&
-        optionDimensionWidth &&
-        optionDimensionHeight
-      ) {
-        optionPayload.dimensions = {
-          width: parseFloat(optionDimensionWidth),
-          height: parseFloat(optionDimensionHeight),
-          unit: optionDimensionUnit,
+      } else if (mode === "option" && categoryId) {
+        const optionPayload: ConfigOption = {
+          id: editingOption?.id || `option-${Date.now()}`,
+          label: optionLabel,
+          price: parseFloat(optionPrice) || 0,
+          description: optionDescription,
+          image: optionImage || undefined,
+          attributeValues:
+            Object.keys(optionAttributeValues).length > 0
+              ? optionAttributeValues
+              : undefined,
         };
-      }
 
-      if (editingOption && onUpdateOption) {
-        onUpdateOption(categoryId, optionPayload);
-      } else if (onAddOption) {
-        onAddOption(categoryId, optionPayload);
-      }
+        if (currentCategoryType === "color" && optionColor) {
+          optionPayload.color = optionColor;
+        }
+        if (currentCategoryType === "power") {
+          if (optionVoltage) optionPayload.voltage = optionVoltage;
+          if (optionWattage) optionPayload.wattage = optionWattage;
+        }
+        if (currentCategoryType === "material" && optionMaterialType) {
+          optionPayload.materialType = optionMaterialType;
+        }
+        if (currentCategoryType === "finish" && optionFinishType) {
+          optionPayload.finishType = optionFinishType;
+        }
+        if (currentCategoryType === "text") {
+          if (optionTextValue) optionPayload.textValue = optionTextValue;
+          if (optionMaxCharacters)
+            optionPayload.maxCharacters = parseInt(optionMaxCharacters);
+        }
+        if (
+          currentCategoryType === "dimension" &&
+          optionDimensionWidth &&
+          optionDimensionHeight
+        ) {
+          optionPayload.dimensions = {
+            width: parseFloat(optionDimensionWidth),
+            height: parseFloat(optionDimensionHeight),
+            unit: optionDimensionUnit,
+          };
+        }
 
-      resetOptionForm();
-      onOpenChange(false);
+        if (editingOption && onUpdateOption) {
+          onUpdateOption(categoryId, optionPayload);
+        } else if (onAddOption) {
+          onAddOption(categoryId, optionPayload);
+        }
+
+        resetOptionForm();
+        onOpenChange(false);
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -351,17 +360,27 @@ export function AdminDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1">
-              {mode === "category"
-                ? editingCategory
-                  ? "Update Category"
-                  : "Add Category"
-                : editingOption
-                ? "Update Option"
-                : "Add Option"}
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {mode === "category" ? "Saving..." : "Creating..."}
+                </>
+              ) : (
+                <>
+                  {mode === "category"
+                    ? editingCategory
+                      ? "Update Category"
+                      : "Add Category"
+                    : editingOption
+                    ? "Update Option"
+                    : "Add Option"}
+                </>
+              )}
             </Button>
           </div>
         </form>
