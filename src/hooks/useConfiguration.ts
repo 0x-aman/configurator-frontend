@@ -236,7 +236,9 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
      MUTATIONS
   ------------------------------------------------------- */
 
-  const onAddCategory = async (category: ConfigCategory): Promise<ConfigCategory | null> => {
+  const onAddCategory = async (
+    category: ConfigCategory
+  ): Promise<ConfigCategory | null> => {
     try {
       const response = await categoryService.create({
         token,
@@ -259,12 +261,13 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           title: "Category added",
           description: `"${category.name}" created successfully.`,
         });
-        
+
         return createdCategory;
       }
       return null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create category.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create category.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -298,7 +301,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update category.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update category.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -309,16 +313,38 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
 
   const onAddOption = async (categoryId: string, option: ConfigOption) => {
     try {
-      const response = await optionService.create({
+      // Build complete payload with all fields
+      const payload: any = {
         token,
         categoryId,
         label: option.label,
         price: option.price,
         description: option.description,
         sku: option.sku,
-        imageUrl: option.imageUrl,
+        imageUrl: option.image || option.imageUrl,
         isDefault: option.isDefault,
-      });
+      };
+
+      // Add attribute values if present
+      if (
+        option.attributeValues &&
+        Object.keys(option.attributeValues).length > 0
+      ) {
+        payload.attributeValues = option.attributeValues;
+      }
+
+      // Add category-specific fields
+      if (option.color) payload.color = option.color;
+      if (option.hexColor) payload.hexColor = option.hexColor;
+      if (option.voltage) payload.voltage = option.voltage;
+      if (option.wattage) payload.wattage = option.wattage;
+      if (option.materialType) payload.materialType = option.materialType;
+      if (option.finishType) payload.finishType = option.finishType;
+      if (option.textValue) payload.textValue = option.textValue;
+      if (option.maxCharacters) payload.maxCharacters = option.maxCharacters;
+      if (option.dimensions) payload.dimensions = option.dimensions;
+
+      const response = await optionService.create(payload);
 
       if (response.success && response.data) {
         dispatch({
@@ -341,7 +367,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create option.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create option.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -352,16 +379,38 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
 
   const onUpdateOption = async (categoryId: string, option: ConfigOption) => {
     try {
-      const response = await optionService.update({
+      // Build complete payload with all fields
+      const payload: any = {
         id: option.id,
         token,
         label: option.label,
         price: option.price,
         description: option.description,
         sku: option.sku,
-        imageUrl: option.imageUrl,
+        imageUrl: option.image || option.imageUrl,
         isDefault: option.isDefault,
-      });
+      };
+
+      // Add attribute values if present
+      if (
+        option.attributeValues &&
+        Object.keys(option.attributeValues).length > 0
+      ) {
+        payload.attributeValues = option.attributeValues;
+      }
+
+      // Add category-specific fields
+      if (option.color) payload.color = option.color;
+      if (option.hexColor) payload.hexColor = option.hexColor;
+      if (option.voltage) payload.voltage = option.voltage;
+      if (option.wattage) payload.wattage = option.wattage;
+      if (option.materialType) payload.materialType = option.materialType;
+      if (option.finishType) payload.finishType = option.finishType;
+      if (option.textValue) payload.textValue = option.textValue;
+      if (option.maxCharacters) payload.maxCharacters = option.maxCharacters;
+      if (option.dimensions) payload.dimensions = option.dimensions;
+
+      const response = await optionService.update(payload);
 
       if (response.success) {
         dispatch({
@@ -389,7 +438,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update option.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update option.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -413,7 +463,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete category.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete category.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -438,7 +489,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete option.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete option.";
       toast({
         title: "Error",
         description: errorMessage,

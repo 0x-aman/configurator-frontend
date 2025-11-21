@@ -236,17 +236,20 @@ const Index = () => {
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="space-y-3">
+            <p className="font-semibold">Invalid Token or Session Expired</p>
             <p>
-              Invalid or expired admin token. Please request a new edit link.
+              Your admin session has expired. Please return to the dashboard to
+              get a new edit link.
             </p>
             <Button
               variant="outline"
               className="w-full"
               onClick={() => {
-                window.location.href = "/";
+                window.location.href =
+                  "https://konfigra.vercel.app/dashboard/embed";
               }}
             >
-              Return to Home
+              Back to Dashboard
             </Button>
           </AlertDescription>
         </Alert>

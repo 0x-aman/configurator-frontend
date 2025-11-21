@@ -7,7 +7,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Upload, Download, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  Upload,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import { ConfigCategory, ConfigOption } from "@/types/configurator";
@@ -51,16 +57,45 @@ export function CSVImportDialog({
 }: CSVImportDialogProps) {
   const [parsedData, setParsedData] = useState<ParsedData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateRow = (row: CSVRow): string[] => {
     const errors: string[] = [];
-    
-    if (!row.category?.trim()) errors.push("Missing category");
-    if (!row.option?.trim()) errors.push("Missing option name");
-    if (!row.description?.trim()) errors.push("Missing description");
-    if (!row.price || isNaN(parseFloat(row.price))) errors.push("Invalid price");
-    
+
+    if (!row.category?.trim()) {
+      errors.push("Missing category name");
+    }
+
+    if (!row.option?.trim()) {
+      errors.push("Missing option name");
+    }
+
+    if (!row.description?.trim()) {
+      errors.push("Missing description");
+    }
+
+    // Validate price
+    if (!row.price || row.price.trim() === "") {
+      errors.push("Missing price");
+    } else {
+      const price = parseFloat(row.price);
+      if (isNaN(price)) {
+        errors.push("Invalid price format");
+      } else if (price < 0) {
+        errors.push("Price must be positive");
+      }
+    }
+
+    // Validate image URL format if provided
+    if (row.imageUrl && row.imageUrl.trim()) {
+      const urlPattern =
+        /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w\-._~:/?#[\]@!$&'()*+,;=]*)?$/i;
+      if (!urlPattern.test(row.imageUrl.trim())) {
+        errors.push("Invalid image URL format");
+      }
+    }
+
     return errors;
   };
 
@@ -68,7 +103,7 @@ export function CSVImportDialog({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
+    if (!file.name.endsWith(".csv")) {
       toast({
         title: "Invalid file type",
         description: "Please upload a CSV file",
@@ -84,29 +119,58 @@ export function CSVImportDialog({
       skipEmptyLines: true,
       complete: (results) => {
         const grouped = new Map<string, (CSVRow & { errors: string[] })[]>();
-        
+
         results.data.forEach((row) => {
           const errors = validateRow(row);
           const categoryName = row.category?.trim() || "Unknown";
-          
+
           if (!grouped.has(categoryName)) {
             grouped.set(categoryName, []);
           }
-          
+
           grouped.get(categoryName)!.push({ ...row, errors });
         });
 
-        const parsed = Array.from(grouped.entries()).map(([category, options]) => ({
-          category,
-          options,
-        }));
+        // Check for duplicate option names within each category
+        grouped.forEach((options, categoryName) => {
+          const optionNames = new Map<string, number>();
+
+          options.forEach((opt) => {
+            const optName = opt.option?.trim().toLowerCase() || "";
+            if (optName) {
+              const count = optionNames.get(optName) || 0;
+              optionNames.set(optName, count + 1);
+
+              if (count > 0) {
+                opt.errors.push(`Duplicate option name in category`);
+              }
+            }
+          });
+        });
+
+        const parsed = Array.from(grouped.entries()).map(
+          ([category, options]) => ({
+            category,
+            options,
+          })
+        );
 
         setParsedData(parsed);
         setIsProcessing(false);
-        
+
+        const totalErrors = parsed.reduce(
+          (acc, group) =>
+            acc + group.options.filter((opt) => opt.errors.length > 0).length,
+          0
+        );
+
         toast({
           title: "CSV parsed successfully",
-          description: `Found ${results.data.length} rows in ${parsed.length} categories`,
+          description: `Found ${results.data.length} rows in ${
+            parsed.length
+          } categories${
+            totalErrors > 0 ? ` (${totalErrors} errors found)` : ""
+          }`,
         });
       },
       error: (error) => {
@@ -146,7 +210,7 @@ Color,Blue,Classic blue finish,200,,option-1`;
     });
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     const hasErrors = parsedData.some((group) =>
       group.options.some((opt) => opt.errors.length > 0)
     );
@@ -160,28 +224,46 @@ Color,Blue,Classic blue finish,200,,option-1`;
       return;
     }
 
-    const importData = parsedData.map((group) => ({
-      category: group.category,
-      options: group.options.map((opt) => ({
-        id: `option-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        label: opt.option,
-        description: opt.description,
-        price: parseFloat(opt.price),
-        image: opt.imageUrl || undefined,
-        incompatibleWith: opt.incompatibleWith
-          ? opt.incompatibleWith.split(",").map((s) => s.trim()).filter(Boolean)
-          : undefined,
-      })),
-    }));
+    setIsSaving(true);
 
-    onImport(importData);
-    setParsedData([]);
-    onOpenChange(false);
-    
-    toast({
-      title: "All data saved",
-      description: `Imported ${importData.reduce((acc, g) => acc + g.options.length, 0)} options across ${importData.length} categories`,
-    });
+    try {
+      const importData = parsedData.map((group) => ({
+        category: group.category,
+        options: group.options.map((opt) => ({
+          id: `option-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          label: opt.option,
+          description: opt.description,
+          price: parseFloat(opt.price),
+          image: opt.imageUrl || undefined,
+          incompatibleWith: opt.incompatibleWith
+            ? opt.incompatibleWith
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : undefined,
+        })),
+      }));
+
+      await onImport(importData);
+      setParsedData([]);
+      onOpenChange(false);
+
+      toast({
+        title: "Import completed",
+        description: `Successfully imported ${importData.reduce(
+          (acc, g) => acc + g.options.length,
+          0
+        )} options across ${importData.length} categories`,
+      });
+    } catch (error) {
+      toast({
+        title: "Import failed",
+        description: "An error occurred while importing data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDiscard = () => {
@@ -193,7 +275,8 @@ Color,Blue,Classic blue finish,200,,option-1`;
   };
 
   const totalErrors = parsedData.reduce(
-    (acc, group) => acc + group.options.filter((opt) => opt.errors.length > 0).length,
+    (acc, group) =>
+      acc + group.options.filter((opt) => opt.errors.length > 0).length,
     0
   );
 
@@ -210,7 +293,7 @@ Color,Blue,Classic blue finish,200,,option-1`;
         <div className="flex-1 overflow-y-auto">
           {parsedData.length === 0 ? (
             <div className="space-y-6 py-4">
-              <div 
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-all"
               >
@@ -250,7 +333,9 @@ Color,Blue,Classic blue finish,200,,option-1`;
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
-                  <strong>Expected columns:</strong> category, option, description, price, imageUrl (optional), incompatibleWith (optional)
+                  <strong>Expected columns:</strong> category, option,
+                  description, price, imageUrl (optional), incompatibleWith
+                  (optional)
                 </AlertDescription>
               </Alert>
             </div>
@@ -259,7 +344,8 @@ Color,Blue,Classic blue finish,200,,option-1`;
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
                   <h3 className="font-semibold">
-                    {parsedData.reduce((acc, g) => acc + g.options.length, 0)} options
+                    {parsedData.reduce((acc, g) => acc + g.options.length, 0)}{" "}
+                    options
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     across {parsedData.length} categories
@@ -295,14 +381,20 @@ Color,Blue,Classic blue finish,200,,option-1`;
                           <div
                             key={optIdx}
                             className={`px-4 py-3 grid grid-cols-12 gap-3 items-start ${
-                              opt.errors.length > 0 ? "bg-destructive/5 border-l-4 border-l-destructive" : ""
+                              opt.errors.length > 0
+                                ? "bg-destructive/5 border-l-4 border-l-destructive"
+                                : ""
                             }`}
                           >
                             <div className="col-span-3">
-                              <p className="font-medium text-sm">{opt.option}</p>
+                              <p className="font-medium text-sm">
+                                {opt.option}
+                              </p>
                             </div>
                             <div className="col-span-5">
-                              <p className="text-sm text-muted-foreground line-clamp-2">{opt.description}</p>
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {opt.description}
+                              </p>
                             </div>
                             <div className="col-span-2">
                               <p className="text-sm font-mono">${opt.price}</p>
@@ -311,7 +403,10 @@ Color,Blue,Classic blue finish,200,,option-1`;
                               {opt.errors.length > 0 ? (
                                 <div className="flex flex-col gap-1">
                                   {opt.errors.map((err, errIdx) => (
-                                    <span key={errIdx} className="text-xs text-destructive">
+                                    <span
+                                      key={errIdx}
+                                      className="text-xs text-destructive"
+                                    >
                                       {err}
                                     </span>
                                   ))}
@@ -331,15 +426,30 @@ Color,Blue,Classic blue finish,200,,option-1`;
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button onClick={handleDiscard} variant="outline" className="flex-1">
+                <Button
+                  onClick={handleDiscard}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isSaving}
+                >
                   Discard
                 </Button>
                 <Button
                   onClick={handleSaveAll}
-                  disabled={totalErrors > 0}
+                  disabled={totalErrors > 0 || isSaving}
                   className="flex-1"
                 >
-                  Save All ({parsedData.reduce((acc, g) => acc + g.options.length, 0)} items)
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    `Save All (${parsedData.reduce(
+                      (acc, g) => acc + g.options.length,
+                      0
+                    )} items)`
+                  )}
                 </Button>
               </div>
             </div>

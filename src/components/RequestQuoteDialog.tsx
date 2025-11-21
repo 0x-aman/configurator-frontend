@@ -80,7 +80,10 @@ export function RequestQuoteDialog({
       customerName: formData.name,
       customerPhone: formData.phone || "",
       selectedOptions: selectedConfig?.selectedOptions || {},
-      totalPrice: typeof totalPrice === 'number' ? totalPrice : (parseFloat(totalPrice as string) || 0),
+      totalPrice:
+        typeof totalPrice === "number"
+          ? totalPrice
+          : parseFloat(totalPrice as string) || 0,
       configuration: {
         items: selectedConfig?.items || [],
       },
@@ -92,31 +95,39 @@ export function RequestQuoteDialog({
     };
 
     try {
-      // Simulate API call (replace this with your real POST request)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Import quoteService at the top if not already imported
+      const { quoteService } = await import("@/services/quoteService");
 
-      console.log("Quote Request Payload (ready for backend):", quotePayload);
+      const response = await quoteService.create(quotePayload);
 
-      toast({
-        title: "Quote request sent!",
-        description:
-          "Your quote request has been submitted successfully. We'll get back to you within 24 hours.",
-      });
+      if (response.success) {
+        toast({
+          title: "Quote request sent!",
+          description: response.data?.quoteCode
+            ? `Your quote code is ${response.data.quoteCode}. We'll get back to you within 24 hours.`
+            : "Your quote request has been submitted successfully. We'll get back to you within 24 hours.",
+        });
 
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        company: "",
-        message: "",
-      });
-      onOpenChange(false);
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          company: "",
+          message: "",
+        });
+        onOpenChange(false);
+      } else {
+        throw new Error(response.message || "Failed to create quote");
+      }
     } catch (error) {
       console.error("Quote submission failed:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Could not send your quote request. Please try again later.";
       toast({
         title: "Something went wrong",
-        description:
-          "Could not send your quote request. Please try again later.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -137,7 +148,11 @@ export function RequestQuoteDialog({
               Total Configuration Price:
             </span>
             <span className="text-2xl font-bold text-primary">
-              ${(typeof totalPrice === 'number' ? totalPrice : parseFloat(totalPrice as string) || 0).toFixed(2)}
+              $
+              {(typeof totalPrice === "number"
+                ? totalPrice
+                : parseFloat(totalPrice as string) || 0
+              ).toFixed(2)}
             </span>
           </div>
         </div>
