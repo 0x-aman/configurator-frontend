@@ -18,7 +18,6 @@ import { OptionFormBasic } from "@/components/admin/OptionFormBasic";
 import { OptionFormDetails } from "@/components/admin/OptionFormDetails";
 import { OptionFormCompatibility } from "@/components/admin/OptionFormCompatibility";
 import { OptionAttributeValues } from "@/components/admin/OptionAttributeValues";
-import { Loader2 } from "lucide-react";
 
 interface AdminDialogProps {
   open: boolean;
@@ -30,9 +29,10 @@ interface AdminDialogProps {
   editingCategory?: ConfigCategory | null;
   onAddCategory?: (category: ConfigCategory) => Promise<ConfigCategory | null>;
   onUpdateCategory?: (category: ConfigCategory) => void;
-  onAddOption?: (categoryId: string, option: ConfigOption) => void;
+  onAddOption?: (categoryId: string, option: ConfigOption) => Promise<{ success: boolean; isLimitError?: boolean }>;
   onUpdateOption?: (categoryId: string, option: ConfigOption) => void;
   onCategoryCreated?: (categoryId: string) => void;
+  onLimitReached?: () => void;
   configuratorId: string;
 }
 
@@ -49,11 +49,12 @@ export function AdminDialog({
   onAddOption,
   onUpdateOption,
   onCategoryCreated,
+  onLimitReached,
   configuratorId,
 }: AdminDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryType, setCategoryType] = useState<CategoryType>("GENERIC");
+  const [categoryIsPrimary, setCategoryIsPrimary] = useState(false);
   const [categoryAttributesTemplate, setCategoryAttributesTemplate] = useState<
     ConfigAttribute[]
   >([]);
@@ -113,6 +114,7 @@ export function AdminDialog({
         setCategoryType(
           (editingCategory.categoryType || "generic") as CategoryType
         );
+        setCategoryIsPrimary(editingCategory.isPrimary || false);
         setCategoryAttributesTemplate(editingCategory.attributesTemplate || []);
       } else if (mode === "option") {
         resetOptionForm();
@@ -146,105 +148,110 @@ export function AdminDialog({
   const resetCategoryForm = () => {
     setCategoryName("");
     setCategoryType("GENERIC");
+    setCategoryIsPrimary(false);
     setCategoryAttributesTemplate([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
-    try {
-      if (mode === "category") {
-        if (editingCategory && onUpdateCategory) {
-          onUpdateCategory({
-            ...editingCategory,
-            name: categoryName,
-            categoryType,
-            attributesTemplate:
-              categoryAttributesTemplate.length > 0
-                ? categoryAttributesTemplate
-                : undefined,
-          });
-          onOpenChange(false);
-        } else if (onAddCategory) {
-          // Don't generate temporary ID - let backend create it
-          const createdCategory = await onAddCategory({
-            id: "", // Backend will assign the real ID
-            name: categoryName,
-            categoryType,
-            options: [],
-            relatedCategories: [],
-            attributesTemplate:
-              categoryAttributesTemplate.length > 0
-                ? categoryAttributesTemplate
-                : undefined,
-            configuratorId,
-          });
-
-          resetCategoryForm();
-          onOpenChange(false);
-
-          // Trigger option form with the REAL category ID from backend
-          if (createdCategory && onCategoryCreated) {
-            onCategoryCreated(createdCategory.id);
-          }
-        }
-      } else if (mode === "option" && categoryId) {
-        const optionPayload: ConfigOption = {
-          id: editingOption?.id || `option-${Date.now()}`,
-          label: optionLabel,
-          price: parseFloat(optionPrice) || 0,
-          description: optionDescription,
-          image: optionImage || undefined,
-          attributeValues:
-            Object.keys(optionAttributeValues).length > 0
-              ? optionAttributeValues
+    if (mode === "category") {
+      if (editingCategory && onUpdateCategory) {
+        onUpdateCategory({
+          ...editingCategory,
+          name: categoryName,
+          categoryType,
+          isPrimary: categoryIsPrimary,
+          attributesTemplate:
+            categoryAttributesTemplate.length > 0
+              ? categoryAttributesTemplate
               : undefined,
+        });
+        onOpenChange(false);
+      } else if (onAddCategory) {
+        // Don't generate temporary ID - let backend create it
+        const createdCategory = await onAddCategory({
+          id: "", // Backend will assign the real ID
+          name: categoryName,
+          categoryType,
+          isPrimary: categoryIsPrimary,
+          options: [],
+          relatedCategories: [],
+          attributesTemplate:
+            categoryAttributesTemplate.length > 0
+              ? categoryAttributesTemplate
+              : undefined,
+          configuratorId,
+        });
+        
+        resetCategoryForm();
+        onOpenChange(false);
+        
+        // Trigger option form with the REAL category ID from backend
+        if (createdCategory && onCategoryCreated) {
+          onCategoryCreated(createdCategory.id);
+        }
+      }
+    } else if (mode === "option" && categoryId) {
+      const optionPayload: ConfigOption = {
+        id: editingOption?.id || `option-${Date.now()}`,
+        label: optionLabel,
+        price: parseFloat(optionPrice) || 0,
+        description: optionDescription,
+        image: optionImage || undefined,
+        attributeValues:
+          Object.keys(optionAttributeValues).length > 0
+            ? optionAttributeValues
+            : undefined,
+      };
+
+      if (currentCategoryType === "color" && optionColor) {
+        optionPayload.color = optionColor;
+      }
+      if (currentCategoryType === "power") {
+        if (optionVoltage) optionPayload.voltage = optionVoltage;
+        if (optionWattage) optionPayload.wattage = optionWattage;
+      }
+      if (currentCategoryType === "material" && optionMaterialType) {
+        optionPayload.materialType = optionMaterialType;
+      }
+      if (currentCategoryType === "finish" && optionFinishType) {
+        optionPayload.finishType = optionFinishType;
+      }
+      if (currentCategoryType === "text") {
+        if (optionTextValue) optionPayload.textValue = optionTextValue;
+        if (optionMaxCharacters)
+          optionPayload.maxCharacters = parseInt(optionMaxCharacters);
+      }
+      if (
+        currentCategoryType === "dimension" &&
+        optionDimensionWidth &&
+        optionDimensionHeight
+      ) {
+        optionPayload.dimensions = {
+          width: parseFloat(optionDimensionWidth),
+          height: parseFloat(optionDimensionHeight),
+          unit: optionDimensionUnit,
         };
+      }
 
-        if (currentCategoryType === "color" && optionColor) {
-          optionPayload.color = optionColor;
-        }
-        if (currentCategoryType === "power") {
-          if (optionVoltage) optionPayload.voltage = optionVoltage;
-          if (optionWattage) optionPayload.wattage = optionWattage;
-        }
-        if (currentCategoryType === "material" && optionMaterialType) {
-          optionPayload.materialType = optionMaterialType;
-        }
-        if (currentCategoryType === "finish" && optionFinishType) {
-          optionPayload.finishType = optionFinishType;
-        }
-        if (currentCategoryType === "text") {
-          if (optionTextValue) optionPayload.textValue = optionTextValue;
-          if (optionMaxCharacters)
-            optionPayload.maxCharacters = parseInt(optionMaxCharacters);
-        }
-        if (
-          currentCategoryType === "dimension" &&
-          optionDimensionWidth &&
-          optionDimensionHeight
-        ) {
-          optionPayload.dimensions = {
-            width: parseFloat(optionDimensionWidth),
-            height: parseFloat(optionDimensionHeight),
-            unit: optionDimensionUnit,
-          };
-        }
-
-        if (editingOption && onUpdateOption) {
-          onUpdateOption(categoryId, optionPayload);
-        } else if (onAddOption) {
-          onAddOption(categoryId, optionPayload);
-        }
-
+      if (editingOption && onUpdateOption) {
+        onUpdateOption(categoryId, optionPayload);
         resetOptionForm();
         onOpenChange(false);
+      } else if (onAddOption) {
+        const result = await onAddOption(categoryId, optionPayload);
+        if (result.isLimitError) {
+          resetOptionForm();
+          onOpenChange(false);
+          if (onLimitReached) {
+            onLimitReached();
+          }
+        } else if (result.success) {
+          resetOptionForm();
+          onOpenChange(false);
+        }
       }
-    } catch (error) {
-      console.error("Error submitting form:", error);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -282,6 +289,9 @@ export function AdminDialog({
               hasOptions={(editingCategory?.options.length || 0) > 0}
               attributesTemplate={categoryAttributesTemplate}
               setAttributesTemplate={setCategoryAttributesTemplate}
+              isPrimary={categoryIsPrimary}
+              setIsPrimary={setCategoryIsPrimary}
+              hasPrimaryCategory={categories.some(cat => cat.isPrimary && cat.id !== editingCategory?.id)}
             />
           ) : (
             <Tabs defaultValue="basic" className="w-full">
@@ -360,27 +370,17 @@ export function AdminDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
-              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {mode === "category" ? "Saving..." : "Creating..."}
-                </>
-              ) : (
-                <>
-                  {mode === "category"
-                    ? editingCategory
-                      ? "Update Category"
-                      : "Add Category"
-                    : editingOption
-                    ? "Update Option"
-                    : "Add Option"}
-                </>
-              )}
+            <Button type="submit" className="flex-1">
+              {mode === "category"
+                ? editingCategory
+                  ? "Update Category"
+                  : "Add Category"
+                : editingOption
+                ? "Update Option"
+                : "Add Option"}
             </Button>
           </div>
         </form>

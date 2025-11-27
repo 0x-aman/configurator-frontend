@@ -12,12 +12,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { quoteService } from "@/services/quoteService";
+import { getErrorMessage } from "@/lib/api-client";
 
 interface RequestQuoteDialogProps {
   open: boolean;
+  publicKey: string;
   onOpenChange: (open: boolean) => void;
-  totalPrice: string | number;
+  totalPrice: number;
   categories?: any[];
   selectedConfig?: {
     configuratorId?: string;
@@ -34,9 +39,11 @@ export function RequestQuoteDialog({
   open,
   onOpenChange,
   totalPrice,
+  publicKey,
   categories = [],
   selectedConfig = {},
 }: RequestQuoteDialogProps) {
+  const { formatPrice } = useCurrency();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -45,6 +52,69 @@ export function RequestQuoteDialog({
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(20);
+    doc.text("Configuration Quote", 20, 20);
+
+    // Configuration Details
+    doc.setFontSize(12);
+    let yPos = 40;
+
+    doc.text("Selected Configuration:", 20, yPos);
+    yPos += 10;
+
+    // List all items
+    selectedConfig?.items?.forEach((item, index) => {
+      doc.setFontSize(10);
+      doc.text(
+        `${index + 1}. ${item.label} - ${formatPrice(item.price)}`,
+        25,
+        yPos
+      );
+      yPos += 7;
+    });
+
+    yPos += 10;
+    doc.setFontSize(14);
+    doc.text(`Total Price: ${formatPrice(totalPrice)}`, 20, yPos);
+
+    // Customer info if filled
+    if (formData.name || formData.email) {
+      yPos += 20;
+      doc.setFontSize(12);
+      doc.text("Customer Information:", 20, yPos);
+      yPos += 10;
+
+      if (formData.name) {
+        doc.setFontSize(10);
+        doc.text(`Name: ${formData.name}`, 25, yPos);
+        yPos += 7;
+      }
+      if (formData.email) {
+        doc.text(`Email: ${formData.email}`, 25, yPos);
+        yPos += 7;
+      }
+      if (formData.phone) {
+        doc.text(`Phone: ${formData.phone}`, 25, yPos);
+        yPos += 7;
+      }
+      if (formData.company) {
+        doc.text(`Company: ${formData.company}`, 25, yPos);
+        yPos += 7;
+      }
+    }
+
+    doc.save(`configuration-quote-${Date.now()}.pdf`);
+
+    toast({
+      title: "PDF Downloaded",
+      description: "Your configuration has been exported as PDF.",
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,10 +150,7 @@ export function RequestQuoteDialog({
       customerName: formData.name,
       customerPhone: formData.phone || "",
       selectedOptions: selectedConfig?.selectedOptions || {},
-      totalPrice:
-        typeof totalPrice === "number"
-          ? totalPrice
-          : parseFloat(totalPrice as string) || 0,
+      totalPrice: totalPrice,
       configuration: {
         items: selectedConfig?.items || [],
       },
@@ -95,17 +162,18 @@ export function RequestQuoteDialog({
     };
 
     try {
-      // Import quoteService at the top if not already imported
-      const { quoteService } = await import("@/services/quoteService");
+      const resp = await quoteService.create(quotePayload, publicKey);
 
-      const response = await quoteService.create(quotePayload);
+      if (resp?.success) {
+        console.log(
+          "Quote Request Payload (saved):",
+          resp.data ?? quotePayload
+        );
 
-      if (response.success) {
         toast({
           title: "Quote request sent!",
-          description: response.data?.quoteCode
-            ? `Your quote code is ${response.data.quoteCode}. We'll get back to you within 24 hours.`
-            : "Your quote request has been submitted successfully. We'll get back to you within 24 hours.",
+          description:
+            "Your quote request has been submitted successfully. We'll get back to you within 24 hours.",
         });
 
         setFormData({
@@ -117,17 +185,20 @@ export function RequestQuoteDialog({
         });
         onOpenChange(false);
       } else {
-        throw new Error(response.message || "Failed to create quote");
+        const msg = resp?.message ?? "Could not submit quote request.";
+        console.error("Quote submission failed:", msg, resp);
+        toast({
+          title: "Submission failed",
+          description: msg,
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("Quote submission failed:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Could not send your quote request. Please try again later.";
+      const msg = getErrorMessage(error);
+      console.error("Quote submission failed:", msg, error);
       toast({
         title: "Something went wrong",
-        description: errorMessage,
+        description: msg,
         variant: "destructive",
       });
     } finally {
@@ -148,13 +219,21 @@ export function RequestQuoteDialog({
               Total Configuration Price:
             </span>
             <span className="text-2xl font-bold text-primary">
-              $
-              {(typeof totalPrice === "number"
-                ? totalPrice
-                : parseFloat(totalPrice as string) || 0
-              ).toFixed(2)}
+              {formatPrice(totalPrice)}
             </span>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleExportPDF}
+            className="w-full"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export as PDF
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

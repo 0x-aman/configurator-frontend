@@ -1,15 +1,19 @@
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ConfigCategory, SelectedConfig } from "@/types/configurator";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { X } from "lucide-react";
 
 interface SummaryPanelProps {
   categories: ConfigCategory[];
   selectedConfig: SelectedConfig;
+  onRemoveOption?: (categoryId: string) => void;
 }
 
 export function SummaryPanel({
   categories,
   selectedConfig,
+  onRemoveOption,
 }: SummaryPanelProps) {
   const { formatPrice } = useCurrency();
 
@@ -37,15 +41,33 @@ export function SummaryPanel({
               return (
                 <Card
                   key={category.id}
-                  className="p-4 bg-accent/30 border-primary/20"
+                  className="p-4 bg-accent/30 border-primary/20 relative group"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs font-medium text-primary uppercase tracking-wide">
                       {category.name}
+                      {category.isPrimary && (
+                        <span className="ml-2 text-[10px] bg-primary/20 px-1.5 py-0.5 rounded">
+                          PRIMARY
+                        </span>
+                      )}
                     </span>
-                    <span className="text-sm font-semibold text-foreground">
-                      {formatPrice(option.price)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        {formatPrice(option.price)}
+                      </span>
+                      {onRemoveOption && !category.isPrimary && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => onRemoveOption(category.id)}
+                          title="Remove option"
+                        >
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <h3 className="font-semibold text-foreground mb-1">
                     {option.label}

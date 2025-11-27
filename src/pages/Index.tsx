@@ -15,6 +15,7 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { ThemeCustomizer } from "@/components/theme/ThemeCustomizer";
 import { EditableTitle } from "@/components/EditableTitle";
 import { CSVImportDialog } from "@/components/admin/CSVImportDialog";
+import { BillingLimitModal } from "@/components/BillingLimitModal";
 import {
   ConfiguratorTour,
   shouldShowTour,
@@ -81,6 +82,7 @@ const Index = () => {
 
   const configPanelRef = useRef<ConfigurationPanelRef>(null);
   const [runTour, setRunTour] = useState(false);
+  const [billingLimitModalOpen, setBillingLimitModalOpen] = useState(false);
 
   // Automatically enable admin mode when verified
   useEffect(() => {
@@ -187,7 +189,11 @@ const Index = () => {
       if (existingCategory) {
         // Add options to existing category
         for (const option of options) {
-          await onAddOption(existingCategory.id, option);
+          const result = await onAddOption(existingCategory.id, option);
+          if (result.isLimitError) {
+            setBillingLimitModalOpen(true);
+            return; // Stop importing if limit reached
+          }
         }
       } else {
         // Create new category and wait for the real ID from backend
@@ -204,7 +210,11 @@ const Index = () => {
         // Add options using the REAL category ID from backend
         if (createdCategory) {
           for (const option of options) {
-            await onAddOption(createdCategory.id, option);
+            const result = await onAddOption(createdCategory.id, option);
+            if (result.isLimitError) {
+              setBillingLimitModalOpen(true);
+              return; // Stop importing if limit reached
+            }
           }
         }
       }
@@ -236,20 +246,17 @@ const Index = () => {
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="space-y-3">
-            <p className="font-semibold">Invalid Token or Session Expired</p>
             <p>
-              Your admin session has expired. Please return to the dashboard to
-              get a new edit link.
+              Invalid or expired admin token. Please request a new edit link.
             </p>
             <Button
               variant="outline"
               className="w-full"
               onClick={() => {
-                window.location.href =
-                  "https://konfigra.vercel.app/dashboard/embed";
+                window.location.href = "/";
               }}
             >
-              Back to Dashboard
+              Return to Home
             </Button>
           </AlertDescription>
         </Alert>
@@ -415,6 +422,10 @@ const Index = () => {
             <SummaryPanel
               categories={state.categories}
               selectedConfig={state.selectedConfig}
+              onRemoveOption={(categoryId) => {
+                // For non-primary categories, just clear the selection
+                dispatch({ type: "SELECT_OPTION", categoryId, optionId: "" });
+              }}
             />
           </div>
 
@@ -486,11 +497,28 @@ const Index = () => {
         <ConfiguratorTour run={runTour} onComplete={() => setRunTour(false)} />
 
         <RequestQuoteDialog
+          publicKey={activePublicKey}
           open={quoteDialogOpen}
           onOpenChange={setQuoteDialogOpen}
-          totalPrice={formatPrice(calculateTotal())}
+          totalPrice={calculateTotal()}
           categories={state.categories}
-          selectedConfig={state.selectedConfig}
+          selectedConfig={{
+            configuratorId,
+            selectedOptions: state.selectedConfig,
+            items: state.categories
+              .map((cat) => {
+                const optId = state.selectedConfig[cat.id];
+                const opt = cat.options.find((o) => o.id === optId);
+                return opt
+                  ? {
+                      sku: opt.sku || opt.id,
+                      label: opt.label,
+                      price: opt.price,
+                    }
+                  : null;
+              })
+              .filter(Boolean) as any[],
+          }}
         />
 
         <SettingsDialog
@@ -528,6 +556,7 @@ const Index = () => {
           onAddOption={onAddOption}
           onUpdateOption={onUpdateOption}
           onCategoryCreated={handleCategoryCreated}
+          onLimitReached={() => setBillingLimitModalOpen(true)}
           configuratorId={configuratorId}
         />
 
@@ -544,6 +573,11 @@ const Index = () => {
           onOpenChange={setCsvImportDialogOpen}
           categories={state.categories}
           onImport={handleCSVImport}
+        />
+
+        <BillingLimitModal
+          open={billingLimitModalOpen}
+          onOpenChange={setBillingLimitModalOpen}
         />
       </div>
     </CurrencyProvider>

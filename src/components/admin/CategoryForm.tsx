@@ -1,5 +1,6 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,9 @@ interface CategoryFormProps {
   hasOptions: boolean;
   attributesTemplate: ConfigAttribute[];
   setAttributesTemplate: (attributes: ConfigAttribute[]) => void;
+  isPrimary?: boolean;
+  setIsPrimary?: (isPrimary: boolean) => void;
+  hasPrimaryCategory?: boolean;
 }
 
 export function CategoryForm({
@@ -31,6 +35,9 @@ export function CategoryForm({
   hasOptions,
   attributesTemplate,
   setAttributesTemplate,
+  isPrimary = false,
+  setIsPrimary,
+  hasPrimaryCategory = false,
 }: CategoryFormProps) {
   return (
     <div className="space-y-6">
@@ -45,6 +52,38 @@ export function CategoryForm({
             placeholder="e.g., Accessories"
           />
         </div>
+
+        {setIsPrimary && (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is-primary"
+                checked={isPrimary}
+                onCheckedChange={(checked) => setIsPrimary(!!checked)}
+                disabled={hasPrimaryCategory && !isPrimary}
+              />
+              <Label htmlFor="is-primary" className="cursor-pointer">
+                Primary Category
+              </Label>
+            </div>
+            {hasPrimaryCategory && !isPrimary ? (
+              <div className="flex items-start gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 p-2 rounded">
+                <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <p>
+                  You already have a primary category. Only one primary category is allowed per configurator.
+                </p>
+              </div>
+            ) : isPrimary ? (
+              <p className="text-xs text-muted-foreground">
+                Primary category must always have one option selected. Users cannot deselect it.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Primary categories define the main product choice. Mark as primary if this is your main category.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="category-type">Category Type *</Label>
