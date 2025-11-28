@@ -1,12 +1,11 @@
 import { apiClient } from "@/lib/api-client";
-import { getParentOrigin } from "@/lib/embed-origin";
+import { parentOrigin } from "@/lib/embed-origin";
 import {
   ApiResponse,
   Quote,
   CreateQuoteInput,
   UpdateQuoteInput,
 } from "@/types/api";
-const origin = getParentOrigin();
 
 /**
  * Quote Service
@@ -24,7 +23,7 @@ export const quoteService = {
     const config: Record<string, any> = {};
     config.headers = {
       "X-Public-Key": publicKey,
-      "X-Embed-Origin": origin,
+      "X-Embed-Origin": parentOrigin,
     };
     return apiClient.post<Quote>("/api/quote/create", input, config);
   },
