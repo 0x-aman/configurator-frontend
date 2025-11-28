@@ -1,5 +1,12 @@
-import { apiClient } from '@/lib/api-client';
-import { ApiResponse, Quote, CreateQuoteInput, UpdateQuoteInput } from '@/types/api';
+import { apiClient } from "@/lib/api-client";
+import { getParentOrigin } from "@/lib/embed-origin";
+import {
+  ApiResponse,
+  Quote,
+  CreateQuoteInput,
+  UpdateQuoteInput,
+} from "@/types/api";
+const origin = getParentOrigin();
 
 /**
  * Quote Service
@@ -8,10 +15,18 @@ import { ApiResponse, Quote, CreateQuoteInput, UpdateQuoteInput } from '@/types/
 export const quoteService = {
   /**
    * Create a new quote (public endpoint)
-   * Requires X-Public-Key header
+   * Requires X-Public-Key header (optional param)
    */
-  async create(input: CreateQuoteInput): Promise<ApiResponse<Quote>> {
-    return apiClient.post<Quote>('/api/quote/create', input);
+  async create(
+    input: CreateQuoteInput,
+    publicKey: string
+  ): Promise<ApiResponse<Quote>> {
+    const config: Record<string, any> = {};
+    config.headers = {
+      "X-Public-Key": publicKey,
+      "X-Embed-Origin": origin,
+    };
+    return apiClient.post<Quote>("/api/quote/create", input, config);
   },
 
   /**
@@ -20,16 +35,19 @@ export const quoteService = {
   async list(
     token: string,
     filters?: {
-      status?: Quote['status'];
+      status?: Quote["status"];
       configuratorId?: string;
     }
   ): Promise<ApiResponse<Quote[]>> {
     const params = new URLSearchParams();
-    if (filters?.status) params.append('status', filters.status);
-    if (filters?.configuratorId) params.append('configuratorId', filters.configuratorId);
+    if (filters?.status) params.append("status", filters.status);
+    if (filters?.configuratorId)
+      params.append("configuratorId", filters.configuratorId);
 
     const queryString = params.toString();
-    const endpoint = queryString ? `/api/quote/list?${queryString}` : '/api/quote/list';
+    const endpoint = queryString
+      ? `/api/quote/list?${queryString}`
+      : "/api/quote/list";
 
     return apiClient.get<Quote[]>(endpoint, {
       data: { token },
@@ -47,6 +65,6 @@ export const quoteService = {
    * Update quote (requires token)
    */
   async update(input: UpdateQuoteInput): Promise<ApiResponse<Quote>> {
-    return apiClient.put<Quote>('/api/quote/update', input);
+    return apiClient.put<Quote>("/api/quote/update", input);
   },
 };

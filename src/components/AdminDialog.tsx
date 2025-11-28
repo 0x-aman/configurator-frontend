@@ -29,9 +29,13 @@ interface AdminDialogProps {
   editingCategory?: ConfigCategory | null;
   onAddCategory?: (category: ConfigCategory) => Promise<ConfigCategory | null>;
   onUpdateCategory?: (category: ConfigCategory) => void;
-  onAddOption?: (categoryId: string, option: ConfigOption) => void;
+  onAddOption?: (
+    categoryId: string,
+    option: ConfigOption
+  ) => Promise<{ success: boolean; isLimitError?: boolean }>;
   onUpdateOption?: (categoryId: string, option: ConfigOption) => void;
   onCategoryCreated?: (categoryId: string) => void;
+  onLimitReached?: () => void;
   configuratorId: string;
 }
 
@@ -48,10 +52,12 @@ export function AdminDialog({
   onAddOption,
   onUpdateOption,
   onCategoryCreated,
+  onLimitReached,
   configuratorId,
 }: AdminDialogProps) {
   const [categoryName, setCategoryName] = useState("");
   const [categoryType, setCategoryType] = useState<CategoryType>("GENERIC");
+  const [categoryIsPrimary, setCategoryIsPrimary] = useState(false);
   const [categoryAttributesTemplate, setCategoryAttributesTemplate] = useState<
     ConfigAttribute[]
   >([]);
@@ -105,12 +111,14 @@ export function AdminDialog({
         );
         setOptionDimensionUnit(editingOption.dimensions?.unit || "mm");
         setOptionAttributeValues(editingOption.attributeValues || {});
-        setSelectedIncompatibilities([]);
+        // preserve existing incompatibilities when editing
+        setSelectedIncompatibilities(editingOption.incompatibleWith || []);
       } else if (editingCategory) {
         setCategoryName(editingCategory.name);
         setCategoryType(
           (editingCategory.categoryType || "generic") as CategoryType
         );
+        setCategoryIsPrimary(editingCategory.isPrimary || false);
         setCategoryAttributesTemplate(editingCategory.attributesTemplate || []);
       } else if (mode === "option") {
         resetOptionForm();
@@ -144,6 +152,7 @@ export function AdminDialog({
   const resetCategoryForm = () => {
     setCategoryName("");
     setCategoryType("GENERIC");
+    setCategoryIsPrimary(false);
     setCategoryAttributesTemplate([]);
   };
 
@@ -156,6 +165,7 @@ export function AdminDialog({
           ...editingCategory,
           name: categoryName,
           categoryType,
+          isPrimary: categoryIsPrimary,
           attributesTemplate:
             categoryAttributesTemplate.length > 0
               ? categoryAttributesTemplate
@@ -168,6 +178,7 @@ export function AdminDialog({
           id: "", // Backend will assign the real ID
           name: categoryName,
           categoryType,
+          isPrimary: categoryIsPrimary,
           options: [],
           relatedCategories: [],
           attributesTemplate:
@@ -176,10 +187,10 @@ export function AdminDialog({
               : undefined,
           configuratorId,
         });
-        
+
         resetCategoryForm();
         onOpenChange(false);
-        
+
         // Trigger option form with the REAL category ID from backend
         if (createdCategory && onCategoryCreated) {
           onCategoryCreated(createdCategory.id);
@@ -196,6 +207,9 @@ export function AdminDialog({
           Object.keys(optionAttributeValues).length > 0
             ? optionAttributeValues
             : undefined,
+        // include incompatibilities in payload (backend expects `incompatibleWith`)
+        incompatibleWith:
+          selectedIncompatibilities.length > 0 ? selectedIncompatibilities : [],
       };
 
       if (currentCategoryType === "color" && optionColor) {
@@ -230,12 +244,21 @@ export function AdminDialog({
 
       if (editingOption && onUpdateOption) {
         onUpdateOption(categoryId, optionPayload);
+        resetOptionForm();
+        onOpenChange(false);
       } else if (onAddOption) {
-        onAddOption(categoryId, optionPayload);
+        const result = await onAddOption(categoryId, optionPayload);
+        if (result.isLimitError) {
+          resetOptionForm();
+          onOpenChange(false);
+          if (onLimitReached) {
+            onLimitReached();
+          }
+        } else if (result.success) {
+          resetOptionForm();
+          onOpenChange(false);
+        }
       }
-
-      resetOptionForm();
-      onOpenChange(false);
     }
   };
 
@@ -273,6 +296,11 @@ export function AdminDialog({
               hasOptions={(editingCategory?.options.length || 0) > 0}
               attributesTemplate={categoryAttributesTemplate}
               setAttributesTemplate={setCategoryAttributesTemplate}
+              isPrimary={categoryIsPrimary}
+              setIsPrimary={setCategoryIsPrimary}
+              hasPrimaryCategory={categories.some(
+                (cat) => cat.isPrimary && cat.id !== editingCategory?.id
+              )}
             />
           ) : (
             <Tabs defaultValue="basic" className="w-full">

@@ -6,3 +6,14 @@ window.addEventListener("message", (event) => {
     parentOrigin = event.data.origin;
   }
 });
+
+// Helper
+export function getParentOrigin() {
+  // If in dev, always return local dev site
+  if (import.meta.env.DEV) {
+    return "http://localhost:8080";
+  }
+
+  // Otherwise return the actual parent origin detected
+  return parentOrigin;
+}

@@ -29,6 +29,20 @@ export interface ConfigAttribute {
   value?: any; // the actual value of this attribute
 }
 
+export interface IncompatibilityRecord {
+  id: string;
+  optionId: string;
+  incompatibleOptionId: string;
+  severity?: string;
+  message?: string;
+  incompatibleOption?: {
+    id: string;
+    label: string;
+    sku?: string;
+    categoryId: string;
+  };
+}
+
 export interface ConfigOption {
   id: string;
   label: string;
@@ -55,6 +69,7 @@ export interface ConfigOption {
   textValue?: string; // for text types
   maxCharacters?: number; // for text types
   extraData?: Record<string, any>; // catch-all for future extensions
+  incompatibleWith?: IncompatibilityRecord[];
 }
 
 export interface ConfigCategory {

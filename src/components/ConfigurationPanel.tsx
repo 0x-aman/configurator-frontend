@@ -99,24 +99,30 @@ export const ConfigurationPanel = forwardRef<
     }));
 
     useEffect(() => {
-      // Auto-select logic for required categories
+      // Auto-select logic for primary and required categories
       categories.forEach((category) => {
-        if (!category.isRequired || !category.options?.length) return;
+        // Primary categories MUST always have a selection
+        const mustSelect = category.isPrimary || category.isRequired;
+        
+        if (!mustSelect || !category.options?.length) return;
 
         const alreadySelected = selectedConfig[category.id];
         if (alreadySelected) return; // Skip if already selected
 
-        // 1. Default option
+        // Priority order for auto-selection:
+        // 1. Default option (marked with isDefault)
         const defaultOption = category.options?.find((o) => o.isDefault);
 
-        // 2. Free (zero price) option
-        const zeroPriceOption = category.options?.find((o) => o.price === 0);
+        // 2. Lowest-priced option
+        const lowestPriceOption = [...category.options].sort(
+          (a, b) => (a.price || 0) - (b.price || 0)
+        )[0];
 
-        // 3. Fallback first option
+        // 3. Fallback to first option in list
         const fallbackOption = category.options[0];
 
         const optionToSelect =
-          defaultOption || zeroPriceOption || fallbackOption;
+          defaultOption || lowestPriceOption || fallbackOption;
 
         if (optionToSelect) {
           onOptionSelect(category.id, optionToSelect.id);
@@ -270,10 +276,17 @@ export const ConfigurationPanel = forwardRef<
                           return (
                             <div key={option.id} className="relative group">
                               <button
-                                onClick={() =>
-                                  !isDisabled &&
-                                  onOptionSelect(category.id, option.id)
-                                }
+                                onClick={() => {
+                                  if (isDisabled) return;
+                                  
+                                  // Prevent unselecting if this is primary category and it's the only selected option
+                                  if (category.isPrimary && isSelected) {
+                                    // Don't allow deselection of primary category
+                                    return;
+                                  }
+                                  
+                                  onOptionSelect(category.id, option.id);
+                                }}
                                 disabled={isDisabled}
                                 className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
                                   isSelected

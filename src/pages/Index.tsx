@@ -15,11 +15,8 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { ThemeCustomizer } from "@/components/theme/ThemeCustomizer";
 import { EditableTitle } from "@/components/EditableTitle";
 import { CSVImportDialog } from "@/components/admin/CSVImportDialog";
-import {
-  ConfiguratorTour,
-  shouldShowTour,
-  resetTour,
-} from "@/components/tour/ConfiguratorTour";
+import { BillingLimitModal } from "@/components/BillingLimitModal";
+import { ConfiguratorInfoPopup } from "@/components/admin/ConfiguratorInfoPopup";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { ConfigCategory, ConfigOption } from "@/types/configurator";
 import { useConfiguration } from "@/hooks/useConfiguration";
@@ -28,7 +25,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useSettings } from "@/hooks/useSettings";
 import { useAdminVerification } from "@/hooks/useAdminVerification";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { Palette, FileText, Upload, HelpCircle, Settings } from "lucide-react";
+import { Palette, FileText, Upload, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -53,6 +50,7 @@ const Index = () => {
     configuratorFound,
     isLoading: isLoadingData,
     configuratorId: retrievedConfiguratorId,
+    configurator,
   } = useConfiguratorData(activePublicId, activePublicKey);
 
   const {
@@ -80,7 +78,7 @@ const Index = () => {
   } = useSettings();
 
   const configPanelRef = useRef<ConfigurationPanelRef>(null);
-  const [runTour, setRunTour] = useState(false);
+  const [billingLimitModalOpen, setBillingLimitModalOpen] = useState(false);
 
   // Automatically enable admin mode when verified
   useEffect(() => {
@@ -92,14 +90,6 @@ const Index = () => {
   }, [isVerified, state.isAdminMode]);
 
   const adminModeEnabled = state.isAdminMode && isVerified;
-
-  // Start tour for first-time admin users
-  useEffect(() => {
-    if (adminModeEnabled && shouldShowTour()) {
-      // Small delay to ensure UI is ready
-      setTimeout(() => setRunTour(true), 500);
-    }
-  }, [adminModeEnabled]);
 
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -162,11 +152,6 @@ const Index = () => {
     }, 100);
   };
 
-  const handleRestartTour = () => {
-    resetTour();
-    setRunTour(true);
-  };
-
   // set configuratorId
   useEffect(() => {
     setConfiguratorId(
@@ -187,7 +172,11 @@ const Index = () => {
       if (existingCategory) {
         // Add options to existing category
         for (const option of options) {
-          await onAddOption(existingCategory.id, option);
+          const result = await onAddOption(existingCategory.id, option);
+          if (result.isLimitError) {
+            setBillingLimitModalOpen(true);
+            return; // Stop importing if limit reached
+          }
         }
       } else {
         // Create new category and wait for the real ID from backend
@@ -204,10 +193,56 @@ const Index = () => {
         // Add options using the REAL category ID from backend
         if (createdCategory) {
           for (const option of options) {
-            await onAddOption(createdCategory.id, option);
+            const result = await onAddOption(createdCategory.id, option);
+            if (result.isLimitError) {
+              setBillingLimitModalOpen(true);
+              return; // Stop importing if limit reached
+            }
           }
         }
       }
+    }
+  };
+
+  // Handler for option selection with incompatibility validation
+  const handleOptionSelect = (categoryId: string, optionId: string) => {
+    // First, select the option
+    dispatch({ type: "SELECT_OPTION", categoryId, optionId });
+
+    // Get the selected option
+    const category = state.categories.find((c) => c.id === categoryId);
+    const selectedOption = category?.options.find((o) => o.id === optionId);
+
+    if (!selectedOption || !selectedOption.incompatibleWith || selectedOption.incompatibleWith.length === 0) {
+      return; // No incompatibilities to check
+    }
+
+    // Get all incompatible option IDs
+    const incompatibleOptionIds = selectedOption.incompatibleWith.map(
+      (incomp) => incomp.incompatibleOptionId
+    );
+
+    // Check if any currently selected options are in the incompatible list
+    let deselectedSomething = false;
+    const updatedConfig = { ...state.selectedConfig };
+
+    Object.entries(state.selectedConfig).forEach(([catId, optId]) => {
+      if (catId === categoryId || !optId) return; // Skip the current category and empty selections
+
+      // If this selected option is incompatible with the newly selected option, deselect it
+      if (incompatibleOptionIds.includes(optId)) {
+        updatedConfig[catId] = "";
+        deselectedSomething = true;
+      }
+    });
+
+    // If we deselected any incompatible options, update the config and show a toast
+    if (deselectedSomething) {
+      dispatch({ type: "RESTORE_CONFIG", config: updatedConfig });
+      toast({
+        title: "Incompatible selections cleared",
+        description: `Some options were automatically deselected because they're incompatible with "${selectedOption.label}".`,
+      });
     }
   };
 
@@ -319,19 +354,14 @@ const Index = () => {
     <CurrencyProvider formatPrice={formatPrice}>
       <div className="min-h-screen flex flex-col">
         <header className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between admin-toggle-area">
-          <EditableTitle initialTitle="Product Configurator" />
+          <EditableTitle
+            configuratorId={configuratorId}
+            configuratorName={configurator?.name || "Product Configurator"}
+            token={token}
+            isAdminMode={adminModeEnabled}
+          />
           {adminModeEnabled && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={handleRestartTour}
-                size="sm"
-                className="sm:h-10"
-                title="Restart Tour"
-              >
-                <HelpCircle className="h-4 w-4" />
-                <span className="hidden sm:inline sm:ml-2">Tour</span>
-              </Button>
               <Button
                 variant="outline"
                 onClick={() => setCsvImportDialogOpen(true)}
@@ -382,9 +412,7 @@ const Index = () => {
               ref={configPanelRef}
               categories={state.categories}
               selectedConfig={state.selectedConfig}
-              onOptionSelect={(categoryId, optionId) =>
-                dispatch({ type: "SELECT_OPTION", categoryId, optionId })
-              }
+              onOptionSelect={handleOptionSelect}
               isAdminMode={adminModeEnabled}
               onAddCategory={handleAddCategory}
               onEditCategory={handleEditCategory}
@@ -412,6 +440,10 @@ const Index = () => {
             <SummaryPanel
               categories={state.categories}
               selectedConfig={state.selectedConfig}
+              onRemoveOption={(categoryId) => {
+                // For non-primary categories, just clear the selection
+                dispatch({ type: "SELECT_OPTION", categoryId, optionId: "" });
+              }}
             />
           </div>
 
@@ -442,11 +474,7 @@ const Index = () => {
                       category={category}
                       selectedOption={selectedOption}
                       onOptionSelect={(optionId) =>
-                        dispatch({
-                          type: "SELECT_OPTION",
-                          categoryId: category.id,
-                          optionId,
-                        })
+                        handleOptionSelect(category.id, optionId)
                       }
                       selectedConfig={state.selectedConfig}
                       categories={state.categories}
@@ -480,14 +508,34 @@ const Index = () => {
           </div>
         </div>
 
-        <ConfiguratorTour run={runTour} onComplete={() => setRunTour(false)} />
+        <ConfiguratorInfoPopup
+          isAdminMode={adminModeEnabled}
+          configuratorFound={configuratorFound}
+        />
 
         <RequestQuoteDialog
+          publicKey={activePublicKey}
           open={quoteDialogOpen}
           onOpenChange={setQuoteDialogOpen}
-          totalPrice={formatPrice(calculateTotal())}
+          totalPrice={calculateTotal()}
           categories={state.categories}
-          selectedConfig={state.selectedConfig}
+          selectedConfig={{
+            configuratorId,
+            selectedOptions: state.selectedConfig,
+            items: state.categories
+              .map((cat) => {
+                const optId = state.selectedConfig[cat.id];
+                const opt = cat.options.find((o) => o.id === optId);
+                return opt
+                  ? {
+                      sku: opt.sku || opt.id,
+                      label: opt.label,
+                      price: opt.price,
+                    }
+                  : null;
+              })
+              .filter(Boolean) as any[],
+          }}
         />
 
         <SettingsDialog
@@ -525,6 +573,7 @@ const Index = () => {
           onAddOption={onAddOption}
           onUpdateOption={onUpdateOption}
           onCategoryCreated={handleCategoryCreated}
+          onLimitReached={() => setBillingLimitModalOpen(true)}
           configuratorId={configuratorId}
         />
 
@@ -541,6 +590,11 @@ const Index = () => {
           onOpenChange={setCsvImportDialogOpen}
           categories={state.categories}
           onImport={handleCSVImport}
+        />
+
+        <BillingLimitModal
+          open={billingLimitModalOpen}
+          onOpenChange={setBillingLimitModalOpen}
         />
       </div>
     </CurrencyProvider>
