@@ -55,7 +55,7 @@ export const configuratorService = {
       )}`,
       {
         headers: {
-          "X-Embed-Origin": origin || "UNKNOWN",
+          "X-Embed-Origin": origin,
         },
       }
     );
