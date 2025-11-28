@@ -41,15 +41,31 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
   };
 }
 
-function applyThemeToDOM(primaryColor: string, textColorMode: string = "auto", customTextColor?: string) {
+function applyThemeToDOM(
+  primaryColor: string,
+  textColorMode: string = "auto",
+  customTextColor?: string
+) {
   const hsl = hexToHSL(primaryColor);
-  document.documentElement.style.setProperty("--primary", `${hsl.h} ${hsl.s}% ${hsl.l}%`);
-  
+  document.documentElement.style.setProperty(
+    "--primary",
+    `${hsl.h} ${hsl.s}% ${hsl.l}%`
+  );
+
   // Set accent colors based on primary theme
-  document.documentElement.style.setProperty("--accent", `${hsl.h} ${Math.min(hsl.s, 100)}% 97%`);
-  document.documentElement.style.setProperty("--accent-foreground", `${hsl.h} ${hsl.s}% ${hsl.l}%`);
-  document.documentElement.style.setProperty("--ring", `${hsl.h} ${hsl.s}% ${hsl.l}%`);
-  
+  document.documentElement.style.setProperty(
+    "--accent",
+    `${hsl.h} ${Math.min(hsl.s, 100)}% 97%`
+  );
+  document.documentElement.style.setProperty(
+    "--accent-foreground",
+    `${hsl.h} ${hsl.s}% ${hsl.l}%`
+  );
+  document.documentElement.style.setProperty(
+    "--ring",
+    `${hsl.h} ${hsl.s}% ${hsl.l}%`
+  );
+
   let foregroundHSL;
   if (textColorMode === "white") {
     foregroundHSL = "0 0% 98%";
@@ -62,8 +78,11 @@ function applyThemeToDOM(primaryColor: string, textColorMode: string = "auto", c
     // Auto: contrast-based
     foregroundHSL = `${hsl.h} ${hsl.s}% ${hsl.l > 50 ? 10 : 98}%`;
   }
-  
-  document.documentElement.style.setProperty("--primary-foreground", foregroundHSL);
+
+  document.documentElement.style.setProperty(
+    "--primary-foreground",
+    foregroundHSL
+  );
 }
 
 export function useTheme() {
@@ -79,14 +98,18 @@ export function useTheme() {
     try {
       const activeTheme = await themeService.getActiveTheme();
       setTheme(activeTheme);
-      applyThemeToDOM(activeTheme.primaryColor, activeTheme.textColorMode, activeTheme.customTextColor);
+      applyThemeToDOM(
+        activeTheme.primaryColor,
+        activeTheme.textColorMode,
+        activeTheme.customTextColor
+      );
     } catch (error) {
-      console.error("Failed to load theme:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load theme. Using default.",
-        variant: "destructive",
-      });
+      // console.error("Failed to load theme:", error);
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to load theme. Using default.",
+      //   variant: "destructive",
+      // });
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +122,11 @@ export function useTheme() {
         ...updates,
       });
       setTheme(updatedTheme);
-      applyThemeToDOM(updatedTheme.primaryColor, updatedTheme.textColorMode, updatedTheme.customTextColor);
+      applyThemeToDOM(
+        updatedTheme.primaryColor,
+        updatedTheme.textColorMode,
+        updatedTheme.customTextColor
+      );
       toast({
         title: "Theme updated",
         description: "Your theme has been saved successfully.",
@@ -118,7 +145,11 @@ export function useTheme() {
     try {
       const defaultTheme = await themeService.resetToDefault();
       setTheme(defaultTheme);
-      applyThemeToDOM(defaultTheme.primaryColor, defaultTheme.textColorMode, defaultTheme.customTextColor);
+      applyThemeToDOM(
+        defaultTheme.primaryColor,
+        defaultTheme.textColorMode,
+        defaultTheme.customTextColor
+      );
       toast({
         title: "Theme reset",
         description: "Theme has been reset to default.",
