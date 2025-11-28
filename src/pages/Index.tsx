@@ -16,11 +16,7 @@ import { ThemeCustomizer } from "@/components/theme/ThemeCustomizer";
 import { EditableTitle } from "@/components/EditableTitle";
 import { CSVImportDialog } from "@/components/admin/CSVImportDialog";
 import { BillingLimitModal } from "@/components/BillingLimitModal";
-import {
-  ConfiguratorTour,
-  shouldShowTour,
-  resetTour,
-} from "@/components/tour/ConfiguratorTour";
+import { ConfiguratorInfoPopup } from "@/components/admin/ConfiguratorInfoPopup";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { ConfigCategory, ConfigOption } from "@/types/configurator";
 import { useConfiguration } from "@/hooks/useConfiguration";
@@ -29,7 +25,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useSettings } from "@/hooks/useSettings";
 import { useAdminVerification } from "@/hooks/useAdminVerification";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { Palette, FileText, Upload, HelpCircle, Settings } from "lucide-react";
+import { Palette, FileText, Upload, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -54,6 +50,7 @@ const Index = () => {
     configuratorFound,
     isLoading: isLoadingData,
     configuratorId: retrievedConfiguratorId,
+    configurator,
   } = useConfiguratorData(activePublicId, activePublicKey);
 
   const {
@@ -81,7 +78,6 @@ const Index = () => {
   } = useSettings();
 
   const configPanelRef = useRef<ConfigurationPanelRef>(null);
-  const [runTour, setRunTour] = useState(false);
   const [billingLimitModalOpen, setBillingLimitModalOpen] = useState(false);
 
   // Automatically enable admin mode when verified
@@ -94,14 +90,6 @@ const Index = () => {
   }, [isVerified, state.isAdminMode]);
 
   const adminModeEnabled = state.isAdminMode && isVerified;
-
-  // Start tour for first-time admin users
-  useEffect(() => {
-    if (adminModeEnabled && shouldShowTour()) {
-      // Small delay to ensure UI is ready
-      setTimeout(() => setRunTour(true), 500);
-    }
-  }, [adminModeEnabled]);
 
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -162,11 +150,6 @@ const Index = () => {
       setAdminDialogMode("option");
       setAdminDialogOpen(true);
     }, 100);
-  };
-
-  const handleRestartTour = () => {
-    resetTour();
-    setRunTour(true);
   };
 
   // set configuratorId
@@ -329,19 +312,14 @@ const Index = () => {
     <CurrencyProvider formatPrice={formatPrice}>
       <div className="min-h-screen flex flex-col">
         <header className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between admin-toggle-area">
-          <EditableTitle initialTitle="Product Configurator" />
+          <EditableTitle
+            configuratorId={configuratorId}
+            configuratorName={configurator?.name || "Product Configurator"}
+            token={token}
+            isAdminMode={adminModeEnabled}
+          />
           {adminModeEnabled && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={handleRestartTour}
-                size="sm"
-                className="sm:h-10"
-                title="Restart Tour"
-              >
-                <HelpCircle className="h-4 w-4" />
-                <span className="hidden sm:inline sm:ml-2">Tour</span>
-              </Button>
               <Button
                 variant="outline"
                 onClick={() => setCsvImportDialogOpen(true)}
@@ -494,7 +472,10 @@ const Index = () => {
           </div>
         </div>
 
-        <ConfiguratorTour run={runTour} onComplete={() => setRunTour(false)} />
+        <ConfiguratorInfoPopup
+          isAdminMode={adminModeEnabled}
+          configuratorFound={configuratorFound}
+        />
 
         <RequestQuoteDialog
           publicKey={activePublicKey}

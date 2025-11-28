@@ -236,7 +236,9 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
      MUTATIONS
   ------------------------------------------------------- */
 
-  const onAddCategory = async (category: ConfigCategory): Promise<ConfigCategory | null> => {
+  const onAddCategory = async (
+    category: ConfigCategory
+  ): Promise<ConfigCategory | null> => {
     try {
       const response = await categoryService.create({
         token,
@@ -259,12 +261,13 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           title: "Category added",
           description: `"${category.name}" created successfully.`,
         });
-        
+
         return createdCategory;
       }
       return null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create category.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create category.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -298,7 +301,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update category.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update category.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -307,7 +311,10 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
     }
   };
 
-  const onAddOption = async (categoryId: string, option: ConfigOption): Promise<{ success: boolean; isLimitError?: boolean }> => {
+  const onAddOption = async (
+    categoryId: string,
+    option: ConfigOption
+  ): Promise<{ success: boolean; isLimitError?: boolean }> => {
     try {
       const response = await optionService.create({
         token,
@@ -318,6 +325,7 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         sku: option.sku,
         imageUrl: option.imageUrl,
         isDefault: option.isDefault,
+        incompatibleWith: option.incompatibleWith,
       });
 
       if (response.success && response.data) {
@@ -339,17 +347,21 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
           title: "Option added",
           description: `"${option.label}" created successfully.`,
         });
-        
+
         return { success: true };
       }
       return { success: false };
     } catch (error: any) {
       // Check for 403 status code indicating limit reached
-      if (error?.response?.status === 403 || error?.message?.toLowerCase().includes('limit')) {
+      if (
+        error?.response?.status === 403 ||
+        error?.message?.toLowerCase().includes("limit")
+      ) {
         return { success: false, isLimitError: true };
       }
-      
-      const errorMessage = error instanceof Error ? error.message : "Failed to create option.";
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create option.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -398,7 +410,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update option.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update option.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -422,7 +435,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete category.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete category.";
       toast({
         title: "Error",
         description: errorMessage,
@@ -447,7 +461,8 @@ export function useConfiguration(apiCategories: ConfigCategory[]) {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete option.";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete option.";
       toast({
         title: "Error",
         description: errorMessage,

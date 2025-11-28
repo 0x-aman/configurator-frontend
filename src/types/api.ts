@@ -156,6 +156,7 @@ export interface CreateOptionInput {
   sku?: string;
   imageUrl?: string;
   isDefault?: boolean;
+  incompatibleWith: any[];
 }
 
 export interface UpdateOptionInput {

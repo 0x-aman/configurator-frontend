@@ -29,7 +29,10 @@ interface AdminDialogProps {
   editingCategory?: ConfigCategory | null;
   onAddCategory?: (category: ConfigCategory) => Promise<ConfigCategory | null>;
   onUpdateCategory?: (category: ConfigCategory) => void;
-  onAddOption?: (categoryId: string, option: ConfigOption) => Promise<{ success: boolean; isLimitError?: boolean }>;
+  onAddOption?: (
+    categoryId: string,
+    option: ConfigOption
+  ) => Promise<{ success: boolean; isLimitError?: boolean }>;
   onUpdateOption?: (categoryId: string, option: ConfigOption) => void;
   onCategoryCreated?: (categoryId: string) => void;
   onLimitReached?: () => void;
@@ -108,7 +111,8 @@ export function AdminDialog({
         );
         setOptionDimensionUnit(editingOption.dimensions?.unit || "mm");
         setOptionAttributeValues(editingOption.attributeValues || {});
-        setSelectedIncompatibilities([]);
+        // preserve existing incompatibilities when editing
+        setSelectedIncompatibilities(editingOption.incompatibleWith || []);
       } else if (editingCategory) {
         setCategoryName(editingCategory.name);
         setCategoryType(
@@ -183,10 +187,10 @@ export function AdminDialog({
               : undefined,
           configuratorId,
         });
-        
+
         resetCategoryForm();
         onOpenChange(false);
-        
+
         // Trigger option form with the REAL category ID from backend
         if (createdCategory && onCategoryCreated) {
           onCategoryCreated(createdCategory.id);
@@ -203,6 +207,9 @@ export function AdminDialog({
           Object.keys(optionAttributeValues).length > 0
             ? optionAttributeValues
             : undefined,
+        // include incompatibilities in payload (backend expects `incompatibleWith`)
+        incompatibleWith:
+          selectedIncompatibilities.length > 0 ? selectedIncompatibilities : [],
       };
 
       if (currentCategoryType === "color" && optionColor) {
@@ -291,7 +298,9 @@ export function AdminDialog({
               setAttributesTemplate={setCategoryAttributesTemplate}
               isPrimary={categoryIsPrimary}
               setIsPrimary={setCategoryIsPrimary}
-              hasPrimaryCategory={categories.some(cat => cat.isPrimary && cat.id !== editingCategory?.id)}
+              hasPrimaryCategory={categories.some(
+                (cat) => cat.isPrimary && cat.id !== editingCategory?.id
+              )}
             />
           ) : (
             <Tabs defaultValue="basic" className="w-full">

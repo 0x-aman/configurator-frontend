@@ -55,6 +55,7 @@ export interface ConfigOption {
   textValue?: string; // for text types
   maxCharacters?: number; // for text types
   extraData?: Record<string, any>; // catch-all for future extensions
+  incompatibleWith?: any[];
 }
 
 export interface ConfigCategory {
