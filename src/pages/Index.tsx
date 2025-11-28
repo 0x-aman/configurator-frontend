@@ -204,6 +204,48 @@ const Index = () => {
     }
   };
 
+  // Handler for option selection with incompatibility validation
+  const handleOptionSelect = (categoryId: string, optionId: string) => {
+    // First, select the option
+    dispatch({ type: "SELECT_OPTION", categoryId, optionId });
+
+    // Get the selected option
+    const category = state.categories.find((c) => c.id === categoryId);
+    const selectedOption = category?.options.find((o) => o.id === optionId);
+
+    if (!selectedOption || !selectedOption.incompatibleWith || selectedOption.incompatibleWith.length === 0) {
+      return; // No incompatibilities to check
+    }
+
+    // Get all incompatible option IDs
+    const incompatibleOptionIds = selectedOption.incompatibleWith.map(
+      (incomp) => incomp.incompatibleOptionId
+    );
+
+    // Check if any currently selected options are in the incompatible list
+    let deselectedSomething = false;
+    const updatedConfig = { ...state.selectedConfig };
+
+    Object.entries(state.selectedConfig).forEach(([catId, optId]) => {
+      if (catId === categoryId || !optId) return; // Skip the current category and empty selections
+
+      // If this selected option is incompatible with the newly selected option, deselect it
+      if (incompatibleOptionIds.includes(optId)) {
+        updatedConfig[catId] = "";
+        deselectedSomething = true;
+      }
+    });
+
+    // If we deselected any incompatible options, update the config and show a toast
+    if (deselectedSomething) {
+      dispatch({ type: "RESTORE_CONFIG", config: updatedConfig });
+      toast({
+        title: "Incompatible selections cleared",
+        description: `Some options were automatically deselected because they're incompatible with "${selectedOption.label}".`,
+      });
+    }
+  };
+
   // Show loading while initializing, verifying token, or loading data
   if (!isInitialized || isVerifyingToken || isLoadingData) {
     return (
@@ -370,9 +412,7 @@ const Index = () => {
               ref={configPanelRef}
               categories={state.categories}
               selectedConfig={state.selectedConfig}
-              onOptionSelect={(categoryId, optionId) =>
-                dispatch({ type: "SELECT_OPTION", categoryId, optionId })
-              }
+              onOptionSelect={handleOptionSelect}
               isAdminMode={adminModeEnabled}
               onAddCategory={handleAddCategory}
               onEditCategory={handleEditCategory}
@@ -434,11 +474,7 @@ const Index = () => {
                       category={category}
                       selectedOption={selectedOption}
                       onOptionSelect={(optionId) =>
-                        dispatch({
-                          type: "SELECT_OPTION",
-                          categoryId: category.id,
-                          optionId,
-                        })
+                        handleOptionSelect(category.id, optionId)
                       }
                       selectedConfig={state.selectedConfig}
                       categories={state.categories}
